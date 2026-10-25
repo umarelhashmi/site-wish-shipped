@@ -1,7 +1,7 @@
 /* ==========================================================================
    WishShipped.com — Storefront Application Logic
-   Full 731-Product Catalog · AI Model Lookbook · Shopify Storefront GraphQL
-   Shop Pay Express · @t.shopifyemail.com Login · Contact & Mailing List
+   Live Shopify Storefront GraphQL Sync · Multi-Photo Product Galleries
+   Shop Pay Express · Customer Account Login · Contact & Mailing List
    ========================================================================== */
 
 (function () {
@@ -13,10 +13,32 @@
     return;
   }
 
+  const CFG = window.SHOPIFY_CONFIG || {
+    domain: "wishshipped.com",
+    myshopifyDomain: "kumn11-qm.myshopify.com",
+    shopId: "102987006274",
+    storefrontAccessToken: "d7f2c4d005e479eb1eb245b00a8b64f0",
+    apiVersion: "2026-01",
+    autoSyncOnLoad: true,
+    pollIntervalMs: 120000,
+    hideEmptyCategories: true
+  };
+
+  const GRAPHQL_ENDPOINT = `https://${CFG.domain}/api/${CFG.apiVersion}/graphql.json`;
+
   const PRODUCTS = DATA.products || [];
   const PRODUCT_BY_HANDLE = new Map();
   const PRODUCT_BY_ID = new Map();
+
+  function getProductImages(product) {
+    if (Array.isArray(product.images) && product.images.length > 0) {
+      return product.images;
+    }
+    return product.image ? [product.image] : [];
+  }
+
   PRODUCTS.forEach((p) => {
+    p.images = getProductImages(p);
     PRODUCT_BY_HANDLE.set(p.handle, p);
     PRODUCT_BY_ID.set(p.id, p);
   });
@@ -31,16 +53,16 @@
     sortBy: "featured",
     pageSize: 48,
     visibleCount: 48,
-    lookbookFilter: "all",
-    activeShelf: "tumblers",
-    // Track which handles are currently showing Original photo vs AI Model photo
-    showOriginalForHandle: new Set(),
-    globalLookbookShowOriginal: false,
+    // Track active photo index per product handle
+    photoIndexByHandle: new Map(),
     // Track selected variant index per product handle
     selectedVariantByHandle: new Map(),
+    // Track currently open PDP handle
+    openPdpHandle: null,
     // Shopping cart persisted in localStorage
     cart: loadCart(),
-    activePolicyKey: "shipping"
+    activePolicyKey: "shipping",
+    isSyncing: false
   };
 
   function loadCart() {
@@ -69,6 +91,12 @@
       .replace(/"/g, "&quot;");
   }
 
+  function parseNumericGid(gid) {
+    if (!gid) return 0;
+    const parts = String(gid).split("/");
+    return Number(parts[parts.length - 1]) || 0;
+  }
+
   // ========================================================================
   // 1. Navigation & View Switching
   // ========================================================================
@@ -84,11 +112,7 @@
 
     Object.entries(views).forEach(([k, el]) => {
       if (!el) return;
-      if (k === viewName) {
-        el.hidden = false;
-      } else {
-        el.hidden = true;
-      }
+      el.hidden = k !== viewName;
     });
 
     document.querySelectorAll("[data-nav-view]").forEach((btn) => {
@@ -100,7 +124,8 @@
       btn.classList.toggle(
         "active",
         (viewName === "shop" && target === "shop") ||
-          (viewName === "about" && target === "story")
+          (viewName === "about" && target === "story") ||
+          (viewName === "contact" && target === "contact")
       );
     });
 
@@ -114,20 +139,41 @@
   }
 
   // ========================================================================
-  // 2. Product Card Renderer (Supports AI Model / Original Toggle + Variants)
+  // 2. Product Card Renderer (Multi-Photo Gallery + Live Variants)
   // ========================================================================
   function getSelectedVariant(product) {
-    const idx = state.selectedVariantByHandle.get(product.handle) || 0;
-    return product.variants[idx] || product.variants[0] || { id: 0, title: "Default Title", price: product.price, available: true };
+    const variants = product.variants || [];
+    if (variants.length === 0) {
+      return { id: 0, title: "Default Title", price: product.price, available: product.available !== false };
+    }
+    let idx = state.selectedVariantByHandle.get(product.handle);
+    if (idx === undefined) {
+      const firstAvail = variants.findIndex((v) => v.available !== false);
+      idx = firstAvail >= 0 ? firstAvail : 0;
+    }
+    return variants[idx] || variants[0];
   }
 
-  function createProductCardHtml(product, context = "catalog") {
-    const hasAiModel = Boolean(product.aiModelImage);
-    const showingOriginal = state.showOriginalForHandle.has(product.handle);
-    const useModelImg = hasAiModel && !showingOriginal;
-    const displayImg = useModelImg ? product.aiModelImage : product.image;
+  function getSelectedVariantIndex(product) {
+    const variants = product.variants || [];
+    if (variants.length === 0) return 0;
+    let idx = state.selectedVariantByHandle.get(product.handle);
+    if (idx === undefined) {
+      const firstAvail = variants.findIndex((v) => v.available !== false);
+      idx = firstAvail >= 0 ? firstAvail : 0;
+    }
+    return idx;
+  }
+
+  function createProductCardHtml(product) {
+    const photos = getProductImages(product);
+    const photoIdx = Math.min(state.photoIndexByHandle.get(product.handle) || 0, Math.max(0, photos.length - 1));
+    const displayImg = photos[photoIdx] || product.image || "";
+    const isCoverPhoto = displayImg.includes("assets/models/");
+
+    const selectedIdx = getSelectedVariantIndex(product);
     const selectedVar = getSelectedVariant(product);
-    const selectedIdx = state.selectedVariantByHandle.get(product.handle) || 0;
+    const isProductAvailable = product.available !== false && Boolean(selectedVar && selectedVar.available !== false);
 
     // Multi-size variant chips (e.g. S, M, L, XL, 2X)
     const hasMultipleVariants =
@@ -145,44 +191,65 @@
               class="size-chip ${idx === selectedIdx ? "active" : ""}"
               data-select-variant="${escapeHtml(product.handle)}"
               data-variant-idx="${idx}"
-              ${!v.available ? "disabled" : ""}
-              title="${escapeHtml(v.title)} - $${escapeHtml(v.price)}"
+              ${v.available === false ? "disabled" : ""}
+              title="${escapeHtml(v.title)}${v.available === false ? " (Out of Stock)" : ""}"
             >${escapeHtml(v.title)}</button>`
           )
           .join("")}
       </div>`;
     }
 
-    const topBadgeHtml = hasAiModel
-      ? `<span class="badge-2d badge-2d--ai">${escapeHtml(product.aiModelMeta ? product.aiModelMeta.badge : "✨ AI Model")}</span>`
-      : `<span class="badge-2d badge-2d--type">${escapeHtml(product.type || "Souvenir")}</span>`;
-
-    const photoToggleHtml = hasAiModel
-      ? `<button
+    // Multi-photo gallery controls (clean arrows + dots, no labels)
+    let galleryControlsHtml = "";
+    if (photos.length > 1) {
+      galleryControlsHtml = `
+        <button
           type="button"
-          class="photo-toggle-btn"
-          data-toggle-photo="${escapeHtml(product.handle)}"
-          title="Switch between AI Model photo and Original flat-lay photo"
-        >
-          ${useModelImg ? "👕 See Original Photo" : "✨ See AI Model"}
-        </button>`
+          class="card-gallery-arrow card-gallery-arrow--prev"
+          data-card-photo-step="-1"
+          data-card-handle="${escapeHtml(product.handle)}"
+          aria-label="Previous photo"
+        >‹</button>
+        <button
+          type="button"
+          class="card-gallery-arrow card-gallery-arrow--next"
+          data-card-photo-step="1"
+          data-card-handle="${escapeHtml(product.handle)}"
+          aria-label="Next photo"
+        >›</button>
+        <div class="card-gallery-dots">
+          ${photos
+            .map(
+              (_, i) => `<button
+                type="button"
+                class="card-gallery-dot ${i === photoIdx ? "active" : ""}"
+                data-card-photo-idx="${i}"
+                data-card-handle="${escapeHtml(product.handle)}"
+                aria-label="Photo ${i + 1}"
+              ></button>`
+            )
+            .join("")}
+        </div>
+      `;
+    }
+
+    const soldOutBadge = !isProductAvailable
+      ? `<div class="product-card__badges"><span class="badge-2d badge-2d--soldout">Sold Out</span></div>`
       : "";
 
-    return `<article class="product-card" data-product-handle="${escapeHtml(product.handle)}" data-context="${escapeHtml(context)}">
+    return `<article class="product-card" data-product-handle="${escapeHtml(product.handle)}">
       <div class="product-card__media" data-open-pdp="${escapeHtml(product.handle)}">
-        <div class="product-card__badges">
-          ${topBadgeHtml}
-        </div>
+        ${soldOutBadge}
         <img
           src="${escapeHtml(displayImg)}"
           alt="${escapeHtml(product.title)}"
-          class="product-card__img ${useModelImg ? "product-card__img--model" : ""}"
+          class="product-card__img ${isCoverPhoto ? "product-card__img--cover" : ""}"
           loading="lazy"
           width="400"
           height="500"
-          onerror="if(this.src!=='${escapeHtml(product.cdnImage)}' && '${escapeHtml(product.cdnImage)}'){this.src='${escapeHtml(product.cdnImage)}';}"
+          onerror="if(this.src!=='${escapeHtml(product.cdnImage || "")}' && '${escapeHtml(product.cdnImage || "")}'){this.src='${escapeHtml(product.cdnImage || "")}';}"
         />
-        ${photoToggleHtml}
+        ${galleryControlsHtml}
         <span class="product-card__price-sticker">$${escapeHtml(selectedVar.price)}</span>
       </div>
       <div class="product-card__body">
@@ -193,16 +260,17 @@
             type="button"
             class="card-btn-add"
             data-add-cart="${escapeHtml(product.handle)}"
+            ${!isProductAvailable ? "disabled" : ""}
           >
-            ＋ Add to Bag
+            ${isProductAvailable ? "Add to Bag" : "Sold Out"}
           </button>
           <button
             type="button"
             class="card-btn-shop"
             data-buy-shop="${escapeHtml(product.handle)}"
-            title="Instant checkout with Shop Pay"
+            ${!isProductAvailable ? "disabled" : ""}
           >
-            Shop Pay
+            Buy with Shop
           </button>
         </div>
       </div>
@@ -210,90 +278,10 @@
   }
 
   // ========================================================================
-  // 3. Render AI Model Lookbook Showcase
-  // ========================================================================
-  function renderLookbook() {
-    const grid = document.getElementById("lookbook-grid");
-    if (!grid) return;
-
-    const aiProducts = PRODUCTS.filter((p) => Boolean(p.aiModelImage));
-    const filtered = aiProducts.filter((p) => {
-      if (state.lookbookFilter === "all") return true;
-      return p.aiModelMeta && p.aiModelMeta.gender === state.lookbookFilter;
-    });
-
-    grid.innerHTML = filtered.map((p) => createProductCardHtml(p, "lookbook")).join("");
-  }
-
-  // ========================================================================
-  // 4. Render Frontpage Shelves
-  // ========================================================================
-  const SHELF_MAP = {
-    tumblers: [
-      "40oz-mickey-tumbler",
-      "40oz-stitch-tumbler",
-      "40oz-minnie-tumbler",
-      "3d-stitch-tumbler",
-      "3d-minnie-tumbler",
-      "3d-spiderman-tumbler",
-      "40oz-grumpy-tumbler",
-      "belle-tc-tea-cup"
-    ],
-    plush: [
-      "25-minnie-plush",
-      "25-mickey-plush",
-      "15-stitch-plush",
-      "15-minnie-red-plush",
-      "19-stitch-plush",
-      "19-minnie-pink-plush",
-      "19-minnie-red-plush",
-      "15-pluto-plush"
-    ],
-    towels: [
-      "stitch-sun-side-up-k-towel",
-      "2026-squad-twl-towel",
-      "mickey-mouse-sun-daze-kt-towel",
-      "chef-de-mickey-kt-y-towel",
-      "star-wars-burst-twl-towel",
-      "swmg-father-son-towel",
-      "stitch-angel-surfers-towel",
-      "mickey-comic-towel"
-    ],
-    sunglasses: [
-      "yoshi-ss-sunglasses",
-      "wario-sunstache-sunglasses",
-      "waluigi-sunstache-sunglasses",
-      "stuart-sunstache-sunglasses",
-      "shrek-sunstache-sunglasses",
-      "peach-ss-sunglasses",
-      "marvel-spiderman-ss-sunglasses",
-      "marvel-blk-spiderman-ss-sunglasses"
-    ],
-    sets: [
-      "stitch-n-scrump-set-top-bottom-set",
-      "pooh-bee-n-honey-set-top-bottom-set",
-      "magic-tink-set-top-bottom-set",
-      "harry-potter-school-set-top-bottom-set",
-      "harry-potter-owl-set-top-bottom-set",
-      "hidden-minnie-set-top-bottom-set",
-      "oversized-minnie-set-top-bottom-set",
-      "fairytale-adventures-top-bottom-set"
-    ]
-  };
-
-  function renderFrontpageShelf() {
-    const grid = document.getElementById("shelf-grid");
-    if (!grid) return;
-    const handles = SHELF_MAP[state.activeShelf] || SHELF_MAP.tumblers;
-    const items = handles.map((h) => PRODUCT_BY_HANDLE.get(h)).filter(Boolean);
-    grid.innerHTML = items.map((p) => createProductCardHtml(p, "shelf")).join("");
-  }
-
-  // ========================================================================
-  // 5. Render Top Collection Tabs & Sidebar Filters
+  // 3. Render Top Collection Tabs & Sidebar Filters (Zero Empty Filters!)
   // ========================================================================
   const CHARACTER_FILTERS = [
-    { key: "all", label: "All Worlds" },
+    { key: "all", label: "All" },
     { key: "mickey", label: "Mickey Mouse" },
     { key: "minnie", label: "Minnie Mouse" },
     { key: "stitch", label: "Stitch & Angel" },
@@ -304,8 +292,8 @@
     { key: "princess", label: "Disney Princess" },
     { key: "pooh", label: "Winnie the Pooh" },
     { key: "tinker", label: "Tinkerbell" },
-    { key: "toy story", label: "Toy Story / Pizza Planet" },
-    { key: "mario", label: "Super Mario / Yoshi" }
+    { key: "toy story", label: "Toy Story" },
+    { key: "mario", label: "Super Mario" }
   ];
 
   function matchesCharacter(product, charKey) {
@@ -340,45 +328,69 @@
     return hay.includes(charKey);
   }
 
-  function renderFiltersAndTabs() {
-    // 1. Top Collection Bar
-    const topTabs = document.getElementById("top-collection-tabs");
-    const aiCount = PRODUCTS.filter((p) => Boolean(p.aiModelImage)).length;
-    if (topTabs) {
-      const mainCols = [
-        { handle: "all", title: "All Products", count: PRODUCTS.length, icon: "🛍️" },
-        { handle: "ai-lookbook", title: "AI Model Lookbook", count: aiCount, icon: "✨", isLookbook: true },
-        { handle: "adult-t-shirts", title: "Adult T-Shirts & Apparel", count: 328, icon: "👕" },
-        { handle: "kids", title: "Kids", count: 141, icon: "🧒" },
-        { handle: "accessories", title: "Accessories", count: 112, icon: "🕶️" },
-        { handle: "drinkware", title: "Drinkware & Tumblers", count: 99, icon: "🥤" },
-        { handle: "plush", title: "Plush", count: 28, icon: "🧸" },
-        { handle: "towels", title: "Towels", count: 23, icon: "🏖️" }
-      ];
+  function computeNonEmptyCollections() {
+    // Dynamically count products in each collection so empty collections (0 items) are never shown
+    const countsByCol = new Map();
+    PRODUCTS.forEach((p) => {
+      (p.collections || []).forEach((colHandle) => {
+        countsByCol.set(colHandle, (countsByCol.get(colHandle) || 0) + 1);
+      });
+    });
 
-      topTabs.innerHTML = mainCols
+    const knownCols = (DATA.collections || []).filter((c) => c.handle !== "all");
+    const result = [
+      { handle: "all", title: "All Products", count: PRODUCTS.length }
+    ];
+
+    const seen = new Set(["all"]);
+    knownCols.forEach((c) => {
+      const cnt = countsByCol.get(c.handle) || 0;
+      if (cnt > 0) {
+        result.push({ handle: c.handle, title: c.title, count: cnt });
+        seen.add(c.handle);
+      }
+    });
+
+    // Include any new collections dynamically discovered from Shopify
+    countsByCol.forEach((cnt, handle) => {
+      if (!seen.has(handle) && cnt > 0 && handle !== "frontpage") {
+        const pretty = handle
+          .split("-")
+          .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+          .join(" ");
+        result.push({ handle, title: pretty, count: cnt });
+      }
+    });
+
+    return result;
+  }
+
+  function renderFiltersAndTabs() {
+    const nonEmptyCols = computeNonEmptyCollections();
+
+    // 1. Top Collection Bar (exclude 'frontpage' internal collection from top bar)
+    const topTabs = document.getElementById("top-collection-tabs");
+    if (topTabs) {
+      const topBarCols = nonEmptyCols.filter((c) => c.handle !== "frontpage");
+      topTabs.innerHTML = topBarCols
         .map(
           (c) => `<button
             type="button"
-            class="collection-tab ${c.isLookbook ? "collection-tab--lookbook" : ""} ${state.collection === c.handle ? "active" : ""}"
+            class="collection-tab ${state.collection === c.handle ? "active" : ""}"
             data-select-collection="${escapeHtml(c.handle)}"
           >
-            <span>${c.icon} ${escapeHtml(c.title)}</span>
+            <span>${escapeHtml(c.title)}</span>
             <span class="collection-tab__count">${c.count}</span>
           </button>`
         )
         .join("");
     }
 
-    // 2. Sidebar Collections (All 11 collections from wishshipped.com + AI Lookbook)
+    // 2. Sidebar Collections (only collections with count > 0)
     const sideCols = document.getElementById("sidebar-collections");
     if (sideCols) {
-      const allCols = [
-        { handle: "all", title: "All Products", count: PRODUCTS.length },
-        { handle: "ai-lookbook", title: "✨ AI Modeled Apparel", count: aiCount },
-        ...(DATA.collections || []).filter((c) => c.handle !== "all")
-      ];
-      sideCols.innerHTML = allCols
+      const sideBarCols = nonEmptyCols.filter((c) => c.handle !== "frontpage");
+      sideCols.innerHTML = sideBarCols
         .map(
           (c) => `<button
             type="button"
@@ -392,31 +404,40 @@
         .join("");
     }
 
-    // 3. Sidebar Characters
+    // 3. Sidebar Characters (only characters with > 0 matching products)
     const sideChars = document.getElementById("sidebar-characters");
     if (sideChars) {
-      sideChars.innerHTML = CHARACTER_FILTERS.map(
-        (cf) => `<button
-          type="button"
-          class="tag-chip ${state.character === cf.key ? "active" : ""}"
-          data-select-character="${escapeHtml(cf.key)}"
-        >${escapeHtml(cf.label)}</button>`
-      ).join("");
+      const nonEmptyChars = CHARACTER_FILTERS.filter((cf) => {
+        if (cf.key === "all") return true;
+        return PRODUCTS.some((p) => matchesCharacter(p, cf.key));
+      });
+      sideChars.innerHTML = nonEmptyChars
+        .map(
+          (cf) => `<button
+            type="button"
+            class="tag-chip ${state.character === cf.key ? "active" : ""}"
+            data-select-character="${escapeHtml(cf.key)}"
+          >${escapeHtml(cf.label)}</button>`
+        )
+        .join("");
     }
 
-    // 4. Sidebar Product Types
+    // 4. Sidebar Product Types (only product types with count > 0)
     const sideTypes = document.getElementById("sidebar-types");
     if (sideTypes) {
       const typeCounts = new Map();
       PRODUCTS.forEach((p) => {
-        const t = p.type || "Souvenir";
+        const t = (p.type || "").trim();
+        if (!t) return;
         typeCounts.set(t, (typeCounts.get(t) || 0) + 1);
       });
-      const sortedTypes = Array.from(typeCounts.entries()).sort((a, b) => b[1] - a[1]);
+      const sortedTypes = Array.from(typeCounts.entries())
+        .filter(([, cnt]) => cnt > 0)
+        .sort((a, b) => b[1] - a[1]);
 
       sideTypes.innerHTML = [
         `<button type="button" class="sidebar-btn ${state.productType === "all" ? "active" : ""}" data-select-type="all">
-          <span>All Product Types</span>
+          <span>All Categories</span>
           <span class="sidebar-btn__count">${PRODUCTS.length}</span>
         </button>`,
         ...sortedTypes.map(
@@ -434,15 +455,13 @@
   }
 
   // ========================================================================
-  // 6. Filter, Sort & Render Main 731-Product Catalog
+  // 4. Filter, Sort & Render Main Product Catalog
   // ========================================================================
   function getFilteredProducts() {
     const q = state.searchQuery.trim().toLowerCase();
 
     let list = PRODUCTS.filter((p) => {
-      if (state.collection === "ai-lookbook") {
-        if (!p.aiModelImage) return false;
-      } else if (state.collection !== "all") {
+      if (state.collection !== "all") {
         if (!(p.collections || []).includes(state.collection)) return false;
       }
 
@@ -463,10 +482,7 @@
       return true;
     });
 
-    // Sort
-    if (state.sortBy === "ai-first") {
-      list = [...list].sort((a, b) => (b.aiModelImage ? 1 : 0) - (a.aiModelImage ? 1 : 0));
-    } else if (state.sortBy === "price-asc") {
+    if (state.sortBy === "price-asc") {
       list = [...list].sort((a, b) => a.priceNum - b.priceNum);
     } else if (state.sortBy === "price-desc") {
       list = [...list].sort((a, b) => b.priceNum - a.priceNum);
@@ -492,13 +508,9 @@
     const loadMoreBtn = document.getElementById("load-more-btn");
     const loadAllBtn = document.getElementById("load-all-btn");
 
-    const colObj = (DATA.collections || []).find((c) => c.handle === state.collection);
-    const colTitle =
-      state.collection === "ai-lookbook"
-        ? "✨ AI Modeled Apparel"
-        : colObj
-        ? colObj.title
-        : "All Products";
+    const nonEmptyCols = computeNonEmptyCollections();
+    const colObj = nonEmptyCols.find((c) => c.handle === state.collection);
+    const colTitle = colObj ? colObj.title : "All Products";
 
     if (headingTitle) {
       headingTitle.textContent = `${colTitle} (${total})`;
@@ -506,25 +518,22 @@
 
     if (countLabel) {
       countLabel.textContent =
-        total === 0
-          ? "0 Products Match Your Filter"
-          : `Showing 1–${slice.length} of ${total} Products`;
+        total === 0 ? "0 items" : `Showing 1–${slice.length} of ${total}`;
     }
 
-    // Active filter chips
     if (activeChips) {
       const chips = [];
       if (state.collection !== "all") {
-        chips.push(`<span class="active-filter-tag" data-clear-filter="collection">Collection: ${escapeHtml(colTitle)} ✕</span>`);
+        chips.push(`<span class="active-filter-tag" data-clear-filter="collection">${escapeHtml(colTitle)} ✕</span>`);
       }
       if (state.character !== "all") {
-        chips.push(`<span class="active-filter-tag" data-clear-filter="character">World: ${escapeHtml(state.character)} ✕</span>`);
+        chips.push(`<span class="active-filter-tag" data-clear-filter="character">${escapeHtml(state.character)} ✕</span>`);
       }
       if (state.productType !== "all") {
-        chips.push(`<span class="active-filter-tag" data-clear-filter="productType">Type: ${escapeHtml(state.productType)} ✕</span>`);
+        chips.push(`<span class="active-filter-tag" data-clear-filter="productType">${escapeHtml(state.productType)} ✕</span>`);
       }
       if (state.searchQuery) {
-        chips.push(`<span class="active-filter-tag" data-clear-filter="search">Search: "${escapeHtml(state.searchQuery)}" ✕</span>`);
+        chips.push(`<span class="active-filter-tag" data-clear-filter="search">"${escapeHtml(state.searchQuery)}" ✕</span>`);
       }
       activeChips.innerHTML = chips.join("");
     }
@@ -532,17 +541,16 @@
     if (grid) {
       if (total === 0) {
         grid.innerHTML = `<div class="paper-card-2d" style="grid-column:1/-1;text-align:center;padding:32px;">
-          <h3 style="font-family:var(--font-display);font-size:22px;margin-bottom:8px;">No products in this filter yet</h3>
-          <p style="color:var(--ink-muted);margin-bottom:16px;">Try clearing your search or switching back to All 731 Products.</p>
-          <button type="button" class="btn-2d btn-2d--yellow" id="empty-reset-btn">Show All 731 Products</button>
+          <h3 style="font-family:var(--font-display);font-size:20px;margin-bottom:10px;">No products found</h3>
+          <button type="button" class="btn-2d btn-2d--yellow" id="empty-reset-btn">Reset Filters</button>
         </div>`;
       } else {
-        grid.innerHTML = slice.map((p) => createProductCardHtml(p, "catalog")).join("");
+        grid.innerHTML = slice.map((p) => createProductCardHtml(p)).join("");
       }
     }
 
     if (progressText) {
-      progressText.textContent = `Displaying ${slice.length} of ${total} items`;
+      progressText.textContent = `${slice.length} of ${total}`;
     }
     if (loadMoreBtn) {
       loadMoreBtn.hidden = slice.length >= total;
@@ -553,7 +561,7 @@
   }
 
   // ========================================================================
-  // 7. Predictive Search Dropdown
+  // 5. Predictive Search Dropdown
   // ========================================================================
   function renderPredictiveDropdown(query) {
     const dropdown = document.getElementById("predictive-dropdown");
@@ -576,49 +584,47 @@
       return;
     }
 
-    dropdown.innerHTML = `
-      <div class="predictive-dropdown__header">
-        <span>Top Matches (${matches.length})</span>
-        <button type="button" class="header-search__clear" id="predictive-view-all-btn">View All Results →</button>
-      </div>
-      ${matches
-        .map((p) => {
-          const img = p.aiModelImage || p.image;
-          return `<div class="predictive-item" data-open-pdp="${escapeHtml(p.handle)}">
-            <img src="${escapeHtml(img)}" alt="${escapeHtml(p.title)}" class="predictive-item__img" loading="lazy" />
-            <div>
-              <div class="predictive-item__title">${escapeHtml(p.title)}</div>
-              <div class="predictive-item__meta">${escapeHtml(p.type)} ${p.aiModelImage ? "· ✨ AI Modeled" : ""}</div>
-            </div>
-            <div class="predictive-item__price">$${escapeHtml(p.price)}</div>
-          </div>`;
-        })
-        .join("")}
-    `;
+    dropdown.innerHTML = matches
+      .map((p) => {
+        const photos = getProductImages(p);
+        const img = photos[0] || p.image || "";
+        return `<div class="predictive-item" data-open-pdp="${escapeHtml(p.handle)}">
+          <img src="${escapeHtml(img)}" alt="${escapeHtml(p.title)}" class="predictive-item__img" loading="lazy" />
+          <div>
+            <div class="predictive-item__title">${escapeHtml(p.title)}</div>
+            <div class="predictive-item__meta">${escapeHtml(p.type || "")}</div>
+          </div>
+          <div class="predictive-item__price">$${escapeHtml(p.price)}</div>
+        </div>`;
+      })
+      .join("");
     dropdown.hidden = false;
   }
 
   // ========================================================================
-  // 8. Product Detail Modal (PDP)
+  // 6. Product Detail Modal (PDP) — Clean Multi-Photo Gallery & Buttons
   // ========================================================================
   function openPdpModal(handle) {
     const product = PRODUCT_BY_HANDLE.get(handle);
     if (!product) return;
 
+    state.openPdpHandle = handle;
     const modal = document.getElementById("pdp-modal");
     const body = document.getElementById("pdp-modal-body");
     if (!modal || !body) return;
 
-    const selectedIdx = state.selectedVariantByHandle.get(product.handle) || 0;
-    const selectedVar = product.variants[selectedIdx] || product.variants[0];
-    const hasAiModel = Boolean(product.aiModelImage);
-    const showingOrig = state.showOriginalForHandle.has(product.handle);
-    const activePhoto = hasAiModel && !showingOrig ? product.aiModelImage : product.image;
+    const photos = getProductImages(product);
+    const activePhotoIdx = Math.min(state.photoIndexByHandle.get(product.handle) || 0, Math.max(0, photos.length - 1));
+    const activePhoto = photos[activePhotoIdx] || product.image || "";
+
+    const selectedIdx = getSelectedVariantIndex(product);
+    const selectedVar = getSelectedVariant(product);
+    const isAvailable = product.available !== false && Boolean(selectedVar && selectedVar.available !== false);
 
     const variantsButtonsHtml =
       product.variants && product.variants.length > 1 && product.variants[0].title !== "Default Title"
-        ? `<div style="margin:14px 0;">
-            <div style="font-size:12.5px;font-weight:800;text-transform:uppercase;margin-bottom:6px;">Select Size / Option:</div>
+        ? `<div style="margin:12px 0;">
+            <div style="font-size:12px;font-weight:800;text-transform:uppercase;margin-bottom:6px;">Size</div>
             <div style="display:flex;gap:8px;flex-wrap:wrap;">
               ${product.variants
                 .map(
@@ -628,7 +634,7 @@
                     style="padding:6px 14px;"
                     data-pdp-variant-idx="${idx}"
                     data-pdp-handle="${escapeHtml(product.handle)}"
-                    ${!v.available ? "disabled" : ""}
+                    ${v.available === false ? "disabled" : ""}
                   >${escapeHtml(v.title)}</button>`
                 )
                 .join("")}
@@ -636,27 +642,28 @@
           </div>`
         : "";
 
-    const dualGalleryThumbs = hasAiModel
-      ? `<div style="display:flex;gap:10px;margin-top:10px;">
-          <button
-            type="button"
-            class="btn-2d ${!showingOrig ? "btn-2d--yellow" : ""}"
-            data-pdp-photo-mode="model"
-            data-pdp-handle="${escapeHtml(product.handle)}"
-            style="flex:1;padding:6px 10px;font-size:12px;"
-          >
-            ✨ AI Model View
-          </button>
-          <button
-            type="button"
-            class="btn-2d ${showingOrig ? "btn-2d--yellow" : ""}"
-            data-pdp-photo-mode="original"
-            data-pdp-handle="${escapeHtml(product.handle)}"
-            style="flex:1;padding:6px 10px;font-size:12px;"
-          >
-            👕 Original Store Photo
-          </button>
-        </div>`
+    const thumbsHtml =
+      photos.length > 1
+        ? `<div class="pdp-thumbs">
+            ${photos
+              .map(
+                (src, idx) => `<button
+                  type="button"
+                  class="pdp-thumb-btn ${idx === activePhotoIdx ? "active" : ""}"
+                  data-pdp-photo-idx="${idx}"
+                  data-pdp-handle="${escapeHtml(product.handle)}"
+                  aria-label="View photo ${idx + 1}"
+                >
+                  <img src="${escapeHtml(src)}" alt="${escapeHtml(product.title)}" loading="lazy" />
+                </button>`
+              )
+              .join("")}
+          </div>`
+        : "";
+
+    const cleanBodyHtml = (product.bodyHtml || "").trim();
+    const descriptionBlock = cleanBodyHtml
+      ? `<div style="margin-top:8px;font-size:14px;line-height:1.55;color:var(--ink-muted);">${cleanBodyHtml}</div>`
       : "";
 
     body.innerHTML = `
@@ -665,21 +672,18 @@
           <div class="pdp-media-box">
             <img id="pdp-main-img" src="${escapeHtml(activePhoto)}" alt="${escapeHtml(product.title)}" />
           </div>
-          ${dualGalleryThumbs}
+          ${thumbsHtml}
         </div>
         <div style="display:flex;flex-direction:column;gap:10px;">
-          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-            <span class="badge-2d">${escapeHtml(product.type || "Souvenir")}</span>
-            ${hasAiModel ? `<span class="badge-2d badge-2d--ai">${escapeHtml(product.aiModelMeta.badge)}</span>` : ""}
-            ${selectedVar.sku ? `<span style="font-family:var(--font-mono);font-size:11.5px;color:var(--ink-muted);">SKU: ${escapeHtml(selectedVar.sku)}</span>` : ""}
-          </div>
+          ${product.type ? `<div><span class="badge-2d">${escapeHtml(product.type)}</span></div>` : ""}
 
           <h2 id="pdp-modal-title" style="font-family:var(--font-display);font-size:26px;line-height:1.15;">
             ${escapeHtml(product.title)}
           </h2>
 
-          <div style="font-family:var(--font-mono);font-size:24px;font-weight:700;color:var(--ink);">
-            $${escapeHtml(selectedVar.price)}
+          <div style="font-family:var(--font-mono);font-size:24px;font-weight:700;color:var(--ink);display:flex;align-items:center;gap:10px;">
+            <span>$${escapeHtml(selectedVar.price)}</span>
+            ${!isAvailable ? `<span class="badge-2d badge-2d--soldout">Sold Out</span>` : ""}
           </div>
 
           ${variantsButtonsHtml}
@@ -691,8 +695,9 @@
               style="width:100%;padding:12px;font-size:15px;"
               data-add-cart="${escapeHtml(product.handle)}"
               data-close-after-add="true"
+              ${!isAvailable ? "disabled" : ""}
             >
-              🛍️ Add to Shopping Bag — $${escapeHtml(selectedVar.price)}
+              ${isAvailable ? "Add to Shopping Bag" : "Sold Out"}
             </button>
 
             <button
@@ -700,20 +705,13 @@
               class="btn-2d btn-2d--shop"
               style="width:100%;padding:12px;font-size:15px;"
               data-buy-shop="${escapeHtml(product.handle)}"
+              ${!isAvailable ? "disabled" : ""}
             >
-              ⚡ Buy with Shop (Shop Pay 1-Click Checkout)
+              Buy with Shop
             </button>
           </div>
 
-          <div style="margin-top:10px;padding:12px;background:var(--bg-canvas);border:var(--border-2d);border-radius:8px;font-size:13.5px;line-height:1.55;">
-            ${product.bodyHtml || "<p>Official licensed souvenir merchandise from WishShipped.com (Disney Gifts Outlet, Kissimmee, FL).</p>"}
-          </div>
-
-          <div style="font-size:12px;color:var(--ink-muted);display:flex;flex-direction:column;gap:4px;">
-            <span>✓ Ships from Kissimmee, FL via USPS (Free on orders $49.99+)</span>
-            <span>✓ Complimentary local delivery available to Central FL &amp; Disney-area hotels</span>
-            <span>✓ <a href="https://wishshipped.com/products/${escapeHtml(product.handle)}" target="_blank" rel="noopener" style="text-decoration:underline;font-weight:700;">View on wishshipped.com/${escapeHtml(product.handle)}</a></span>
-          </div>
+          ${descriptionBlock}
         </div>
       </div>
     `;
@@ -722,13 +720,16 @@
   }
 
   // ========================================================================
-  // 9. Shopping Bag / Cart + Shopify Storefront API Checkout & Shop Pay
+  // 7. Shopping Bag / Cart + Shopify Storefront API Checkout & Shop Pay
   // ========================================================================
   function addToCart(handle, qty = 1) {
     const product = PRODUCT_BY_HANDLE.get(handle);
     if (!product) return;
 
     const selectedVar = getSelectedVariant(product);
+    if (!selectedVar || selectedVar.available === false) return;
+
+    const photos = getProductImages(product);
     const existing = state.cart.find((item) => item.variantId === selectedVar.id);
     if (existing) {
       existing.qty += qty;
@@ -740,7 +741,7 @@
         variantTitle: selectedVar.title === "Default Title" ? "" : selectedVar.title,
         price: parseFloat(selectedVar.price),
         priceStr: selectedVar.price,
-        image: product.aiModelImage || product.image,
+        image: photos[0] || product.image,
         qty: qty
       });
     }
@@ -761,7 +762,6 @@
     const subEl = document.getElementById("cart-subtotal-amount");
     if (subEl) subEl.textContent = `$${subtotal.toFixed(2)}`;
 
-    // Free shipping progress ($49.99 threshold)
     const threshold = 49.99;
     const pct = Math.min(100, (subtotal / threshold) * 100);
     const barFill = document.getElementById("shipping-bar-fill");
@@ -769,10 +769,10 @@
     if (barFill) barFill.style.width = `${pct.toFixed(1)}%`;
     if (barText) {
       if (subtotal >= threshold) {
-        barText.innerHTML = "🎉 You unlocked <strong>FREE USPS Standard Shipping</strong>!";
+        barText.innerHTML = "Free shipping unlocked";
       } else {
         const diff = (threshold - subtotal).toFixed(2);
-        barText.innerHTML = `Add <strong>$${diff}</strong> more to unlock <strong>FREE USPS Shipping ($49.99+)</strong>!`;
+        barText.innerHTML = `Add <strong>$${diff}</strong> more for free shipping`;
       }
     }
 
@@ -781,9 +781,7 @@
 
     if (state.cart.length === 0) {
       container.innerHTML = `<div style="text-align:center;padding:40px 16px;">
-        <div style="font-size:40px;margin-bottom:8px;">🛍️</div>
-        <h3 style="font-family:var(--font-display);font-size:20px;margin-bottom:6px;">Your shopping bag is empty</h3>
-        <p style="font-size:13.5px;color:var(--ink-muted);margin-bottom:16px;">Have an account? Log in to check out faster.</p>
+        <h3 style="font-family:var(--font-display);font-size:19px;margin-bottom:12px;">Your bag is empty</h3>
         <button type="button" class="btn-2d btn-2d--yellow" id="empty-cart-shop-btn">Continue Shopping</button>
       </div>`;
       return;
@@ -811,14 +809,12 @@
       .join("");
   }
 
-  // Direct Shop Pay URL builder (redirects straight to shop.app/checkout/102987006274/...)
   function buildCartPermalink(items, useShopPay = false) {
     const pairs = items.map((i) => `${i.variantId}:${i.qty}`).join(",");
-    const base = `https://wishshipped.com/cart/${pairs}`;
+    const base = `https://${CFG.domain}/cart/${pairs}`;
     return useShopPay ? `${base}?payment=shop_pay` : base;
   }
 
-  // Official Shopify Storefront API cartCreate checkout
   async function proceedToShopifyCheckout(useShopPay = false) {
     if (state.cart.length === 0) return;
 
@@ -829,7 +825,7 @@
 
     const checkoutBtn = document.getElementById("cart-checkout-btn");
     if (checkoutBtn) {
-      checkoutBtn.textContent = "Connecting to WishShipped Checkout...";
+      checkoutBtn.textContent = "Loading...";
       checkoutBtn.disabled = true;
     }
 
@@ -839,11 +835,11 @@
         quantity: item.qty
       }));
 
-      const res = await fetch(DATA.store.graphqlEndpoint, {
+      const res = await fetch(GRAPHQL_ENDPOINT, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "X-Shopify-Storefront-Access-Token": DATA.store.storefrontToken
+          "X-Shopify-Storefront-Access-Token": CFG.storefrontAccessToken
         },
         body: JSON.stringify({
           query: `mutation cartCreate($lines: [CartLineInput!]!) {
@@ -876,19 +872,195 @@
   }
 
   // ========================================================================
-  // 10. Render Reviews & Policies
+  // 8. Live Shopify Storefront GraphQL Sync Engine
+  //    (Syncs live in-stock / out-of-stock status, prices, categories,
+  //     and auto-adds any new products added in Shopify Admin)
+  // ========================================================================
+  async function syncWithShopifyStorefront() {
+    if (state.isSyncing || !CFG.storefrontAccessToken) return;
+    state.isSyncing = true;
+
+    const syncText = document.getElementById("shopify-sync-text");
+    try {
+      let hasNextPage = true;
+      let cursor = null;
+      let syncedCount = 0;
+      let addedNewCount = 0;
+
+      while (hasNextPage) {
+        const query = `
+          query SyncCatalog($cursor: String) {
+            products(first: 250, after: $cursor) {
+              pageInfo {
+                hasNextPage
+                endCursor
+              }
+              edges {
+                node {
+                  id
+                  handle
+                  title
+                  productType
+                  availableForSale
+                  descriptionHtml
+                  tags
+                  collections(first: 15) {
+                    edges {
+                      node {
+                        handle
+                        title
+                      }
+                    }
+                  }
+                  images(first: 10) {
+                    edges {
+                      node {
+                        url
+                      }
+                    }
+                  }
+                  variants(first: 50) {
+                    edges {
+                      node {
+                        id
+                        title
+                        availableForSale
+                        sku
+                        price {
+                          amount
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        `;
+
+        const res = await fetch(GRAPHQL_ENDPOINT, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Shopify-Storefront-Access-Token": CFG.storefrontAccessToken
+          },
+          body: JSON.stringify({ query, variables: { cursor } })
+        });
+
+        if (!res.ok) break;
+        const payload = await res.json();
+        const productsConn = payload && payload.data && payload.data.products;
+        if (!productsConn) break;
+
+        const edges = productsConn.edges || [];
+        edges.forEach(({ node }) => {
+          if (!node || !node.handle) return;
+          syncedCount += 1;
+
+          const numericPid = parseNumericGid(node.id);
+          const liveVariants = (node.variants && node.variants.edges || []).map(({ node: v }) => ({
+            id: parseNumericGid(v.id),
+            title: v.title || "Default Title",
+            price: Number(v.price && v.price.amount || 0).toFixed(2),
+            sku: v.sku || "",
+            available: Boolean(v.availableForSale)
+          }));
+
+          const firstPrice = liveVariants[0] ? liveVariants[0].price : "0.00";
+          const colHandles = (node.collections && node.collections.edges || []).map(({ node: c }) => {
+            // Ensure collection is registered in DATA.collections if new
+            if (c && c.handle && !(DATA.collections || []).some((dc) => dc.handle === c.handle)) {
+              DATA.collections.push({ handle: c.handle, title: c.title || c.handle, count: 1 });
+            }
+            return c.handle;
+          });
+
+          const liveImages = (node.images && node.images.edges || [])
+            .map(({ node: img }) => img && img.url)
+            .filter(Boolean);
+
+          const existing = PRODUCT_BY_HANDLE.get(node.handle);
+          if (existing) {
+            existing.title = node.title || existing.title;
+            existing.type = node.productType || existing.type;
+            existing.available = Boolean(node.availableForSale);
+            existing.price = firstPrice;
+            existing.priceNum = parseFloat(firstPrice) || existing.priceNum;
+            existing.variants = liveVariants.length > 0 ? liveVariants : existing.variants;
+            if (colHandles.length > 0) {
+              existing.collections = colHandles;
+            }
+            if (Array.isArray(node.tags) && node.tags.length > 0) {
+              existing.tags = node.tags;
+            }
+            if (node.descriptionHtml !== undefined) {
+              existing.bodyHtml = node.descriptionHtml;
+            }
+            if (liveImages[0]) {
+              existing.cdnImage = liveImages[0];
+            }
+            // If Shopify has additional product photos beyond the first flat photo, append them
+            if (liveImages.length > 1) {
+              const curImgs = getProductImages(existing);
+              liveImages.slice(1).forEach((extraUrl) => {
+                if (!curImgs.includes(extraUrl)) curImgs.push(extraUrl);
+              });
+              existing.images = curImgs;
+            }
+          } else {
+            // Brand-new product added in Shopify Admin!
+            const newProd = {
+              id: numericPid,
+              handle: node.handle,
+              title: node.title,
+              type: node.productType || "Souvenir",
+              vendor: "WishShipped",
+              price: firstPrice,
+              priceNum: parseFloat(firstPrice) || 0,
+              available: Boolean(node.availableForSale),
+              image: liveImages[0] || "assets/brand/logo.png",
+              images: liveImages.length > 0 ? liveImages : ["assets/brand/logo.png"],
+              cdnImage: liveImages[0] || "",
+              collections: colHandles,
+              tags: node.tags || [],
+              variants: liveVariants,
+              bodyHtml: node.descriptionHtml || ""
+            };
+            PRODUCTS.unshift(newProd);
+            PRODUCT_BY_HANDLE.set(newProd.handle, newProd);
+            PRODUCT_BY_ID.set(newProd.id, newProd);
+            addedNewCount += 1;
+          }
+        });
+
+        hasNextPage = Boolean(productsConn.pageInfo && productsConn.pageInfo.hasNextPage);
+        cursor = productsConn.pageInfo ? productsConn.pageInfo.endCursor : null;
+      }
+
+      if (syncedCount > 0) {
+        renderFiltersAndTabs();
+        renderCatalog();
+        if (state.openPdpHandle && !document.getElementById("pdp-modal").hidden) {
+          openPdpModal(state.openPdpHandle);
+        }
+        if (syncText) {
+          syncText.textContent = addedNewCount > 0
+            ? `Synced · ${PRODUCTS.length} Products (+${addedNewCount} New)`
+            : `Live Inventory (${PRODUCTS.length} Items)`;
+        }
+      }
+    } catch (err) {
+      console.warn("Shopify live sync check:", err);
+    } finally {
+      state.isSyncing = false;
+    }
+  }
+
+  // ========================================================================
+  // 9. Render Reviews & Policies
   // ========================================================================
   function renderReviewsWall() {
     const gmaps = DATA.googleMaps || {};
-    const topicContainer = document.getElementById("reviews-topic-chips");
-    if (topicContainer && gmaps.topics) {
-      topicContainer.innerHTML = gmaps.topics
-        .map(
-          (t) => `<span class="tag-chip" style="cursor:default;">${escapeHtml(t.name)} (${t.count})</span>`
-        )
-        .join("");
-    }
-
     const grid = document.getElementById("reviews-wall-grid");
     if (grid && gmaps.reviews) {
       grid.innerHTML = gmaps.reviews
@@ -902,7 +1074,7 @@
               <span class="badge-2d">${"★".repeat(r.rating)}${"☆".repeat(5 - r.rating)}</span>
             </div>
             <p style="font-size:14px;line-height:1.55;">“${escapeHtml(r.text)}”</p>
-            <div style="font-size:11.5px;color:var(--ink-muted);margin-top:auto;">Posted ${escapeHtml(r.date)} on Google Maps</div>
+            <div style="font-size:11.5px;color:var(--ink-muted);margin-top:auto;">${escapeHtml(r.date)}</div>
           </article>`
         )
         .join("");
@@ -929,22 +1101,22 @@
       legal: `<h2>Legal Notice</h2>${p.legalNoticeHtml || ""}`,
       contactInfo: `<h2>Contact Information</h2>${p.contactInfoHtml || ""}`,
       optOut: `
-        <h2>Your Privacy Choices (Data Sharing Opt-Out)</h2>
+        <h2>Your Privacy Choices</h2>
         <p>As described in our Privacy Policy, we collect personal information from your interactions with us and our website, including through cookies and similar technologies. We may also share this personal information with third parties, including advertising partners. We do this in order to show you ads on other websites that are more relevant to your interests and for other reasons outlined in our privacy policy.</p>
         <p>Sharing of personal information for targeted advertising based on your interaction on different websites may be considered "sales", "sharing", or "targeted advertising" under certain U.S. state privacy laws. Depending on where you live, you may have the right to opt out of these activities. If you would like to exercise this opt-out right, please follow the instructions below.</p>
         <p>If you visit our website with the Global Privacy Control opt-out preference signal enabled, depending on where you are, we will treat this as a request to opt-out of activity that may be considered a “sale” or “sharing” of personal information or other uses that may be considered targeted advertising for the device and browser you used to visit our website.</p>
         <div style="margin-top:16px;padding:16px;background:var(--bg-yellow-tint);border:var(--border-2d);border-radius:10px;">
-          <strong>Browser Global Privacy Control (GPC) Signal:</strong>
-          <span class="badge-2d" style="margin-left:8px;">${gpcActive ? "Detected & Active" : "Not Detected"}</span>
+          <strong>Global Privacy Control (GPC):</strong>
+          <span class="badge-2d" style="margin-left:8px;">${gpcActive ? "Active" : "Not Detected"}</span>
           <div style="margin-top:12px;">
-            <button type="button" class="btn-2d btn-2d--blue" id="opt-out-confirm-btn">Opt Out of Targeted Advertising Sharing</button>
-            <span id="opt-out-status-msg" style="margin-left:10px;font-weight:700;color:var(--green);" hidden>✓ Your opt-out preference has been saved for this browser.</span>
+            <button type="button" class="btn-2d btn-2d--blue" id="opt-out-confirm-btn">Opt Out</button>
+            <span id="opt-out-status-msg" style="margin-left:10px;font-weight:700;color:var(--green);" hidden>✓ Preference saved.</span>
           </div>
         </div>
       `,
       news: `
-        <h2>News (/blogs/news)</h2>
-        <p>Welcome to the official <strong>WishShipped.com</strong> news &amp; new-arrivals board! All 731 souvenirs, 2026 resort apparel, 40oz tumblers, plush, and beach towels from our three Kissimmee gift shops (4629, 5001, and 7495 W Irlo Bronson Memorial Hwy) are now available online with nationwide USPS shipping and complimentary Central Florida resort delivery.</p>
+        <h2>News</h2>
+        <p>No posts yet.</p>
       `
     };
 
@@ -952,7 +1124,7 @@
   }
 
   // ========================================================================
-  // 11. Event Delegation & Form Bindings
+  // 10. Event Delegation & Form Bindings
   // ========================================================================
   function bindEvents() {
     document.addEventListener("click", (e) => {
@@ -996,8 +1168,6 @@
         if (state.currentView !== "shop") switchView("shop", { skipScroll: true });
         renderFiltersAndTabs();
         renderCatalog();
-        const catSec = document.getElementById("catalog-explorer");
-        if (catSec) catSec.scrollIntoView({ behavior: "smooth" });
         return;
       }
 
@@ -1006,11 +1176,9 @@
         e.preventDefault();
         state.collection = colJump.getAttribute("data-col-jump");
         state.visibleCount = state.pageSize;
-        switchView("shop", { skipScroll: true });
+        switchView("shop", { skipScroll: false });
         renderFiltersAndTabs();
         renderCatalog();
-        const catSec = document.getElementById("catalog-explorer");
-        if (catSec) catSec.scrollIntoView({ behavior: "smooth" });
         return;
       }
 
@@ -1049,6 +1217,12 @@
         return;
       }
 
+      if (target.id === "mobile-filter-toggle-btn") {
+        const sb = document.querySelector(".catalog-sidebar");
+        if (sb) sb.classList.toggle("mobile-open");
+        return;
+      }
+
       if (target.id === "reset-filters-btn" || target.id === "empty-reset-btn") {
         state.collection = "all";
         state.character = "all";
@@ -1062,101 +1236,70 @@
         return;
       }
 
-      // 5. Lookbook Filter & Photo Mode Toggle
-      const lbBtn = target.closest("[data-lookbook-filter]");
-      if (lbBtn) {
-        state.lookbookFilter = lbBtn.getAttribute("data-lookbook-filter");
-        document.querySelectorAll("[data-lookbook-filter]").forEach((b) => {
-          b.classList.toggle("active", b === lbBtn);
-        });
-        renderLookbook();
-        return;
-      }
-
-      if (target.id === "toggle-all-lookbook-view") {
-        state.globalLookbookShowOriginal = !state.globalLookbookShowOriginal;
-        PRODUCTS.forEach((p) => {
-          if (p.aiModelImage) {
-            if (state.globalLookbookShowOriginal) {
-              state.showOriginalForHandle.add(p.handle);
-            } else {
-              state.showOriginalForHandle.delete(p.handle);
-            }
-          }
-        });
-        renderLookbook();
-        renderCatalog();
-        return;
-      }
-
-      const togglePhotoBtn = target.closest("[data-toggle-photo]");
-      if (togglePhotoBtn) {
+      // 5. Multi-Photo Card Gallery Arrows & Dots
+      const stepBtn = target.closest("[data-card-photo-step]");
+      if (stepBtn) {
         e.stopPropagation();
-        const h = togglePhotoBtn.getAttribute("data-toggle-photo");
-        if (state.showOriginalForHandle.has(h)) {
-          state.showOriginalForHandle.delete(h);
-        } else {
-          state.showOriginalForHandle.add(h);
+        const h = stepBtn.getAttribute("data-card-handle");
+        const step = parseInt(stepBtn.getAttribute("data-card-photo-step"), 10) || 1;
+        const p = PRODUCT_BY_HANDLE.get(h);
+        if (p) {
+          const photos = getProductImages(p);
+          const cur = state.photoIndexByHandle.get(h) || 0;
+          const next = (cur + step + photos.length) % photos.length;
+          state.photoIndexByHandle.set(h, next);
+          renderCatalog();
         }
-        renderLookbook();
-        renderFrontpageShelf();
+        return;
+      }
+
+      const dotBtn = target.closest("[data-card-photo-idx]");
+      if (dotBtn) {
+        e.stopPropagation();
+        const h = dotBtn.getAttribute("data-card-handle");
+        const idx = parseInt(dotBtn.getAttribute("data-card-photo-idx"), 10) || 0;
+        state.photoIndexByHandle.set(h, idx);
         renderCatalog();
         return;
       }
 
-      // 6. Frontpage Shelf Tabs
-      const shelfBtn = target.closest("[data-shelf]");
-      if (shelfBtn) {
-        state.activeShelf = shelfBtn.getAttribute("data-shelf");
-        document.querySelectorAll("[data-shelf]").forEach((b) => {
-          b.classList.toggle("active", b === shelfBtn);
-        });
-        renderFrontpageShelf();
-        return;
-      }
-
-      // 7. Variant Size Selection on Card
+      // 6. Variant Size Selection on Card
       const varChip = target.closest("[data-select-variant]");
       if (varChip) {
         e.stopPropagation();
         const h = varChip.getAttribute("data-select-variant");
         const idx = parseInt(varChip.getAttribute("data-variant-idx"), 10) || 0;
         state.selectedVariantByHandle.set(h, idx);
-        renderLookbook();
-        renderFrontpageShelf();
         renderCatalog();
         return;
       }
 
-      // 8. Variant & Photo Selection inside PDP Modal
+      // 7. Variant & Photo Thumbnail Selection inside PDP Modal
       const pdpVarBtn = target.closest("[data-pdp-variant-idx]");
       if (pdpVarBtn) {
         const h = pdpVarBtn.getAttribute("data-pdp-handle");
         const idx = parseInt(pdpVarBtn.getAttribute("data-pdp-variant-idx"), 10) || 0;
         state.selectedVariantByHandle.set(h, idx);
         openPdpModal(h);
-        return;
-      }
-
-      const pdpPhotoBtn = target.closest("[data-pdp-photo-mode]");
-      if (pdpPhotoBtn) {
-        const h = pdpPhotoBtn.getAttribute("data-pdp-handle");
-        const mode = pdpPhotoBtn.getAttribute("data-pdp-photo-mode");
-        if (mode === "original") {
-          state.showOriginalForHandle.add(h);
-        } else {
-          state.showOriginalForHandle.delete(h);
-        }
-        openPdpModal(h);
-        renderLookbook();
         renderCatalog();
         return;
       }
 
-      // 9. Add to Bag & Buy with Shop
+      const pdpPhotoBtn = target.closest("[data-pdp-photo-idx]");
+      if (pdpPhotoBtn) {
+        const h = pdpPhotoBtn.getAttribute("data-pdp-handle");
+        const idx = parseInt(pdpPhotoBtn.getAttribute("data-pdp-photo-idx"), 10) || 0;
+        state.photoIndexByHandle.set(h, idx);
+        openPdpModal(h);
+        renderCatalog();
+        return;
+      }
+
+      // 8. Add to Bag & Buy with Shop
       const addBtn = target.closest("[data-add-cart]");
       if (addBtn) {
         e.stopPropagation();
+        if (addBtn.disabled) return;
         const h = addBtn.getAttribute("data-add-cart");
         addToCart(h, 1);
         if (addBtn.getAttribute("data-close-after-add") === "true") {
@@ -1169,16 +1312,19 @@
       const shopBtn = target.closest("[data-buy-shop]");
       if (shopBtn) {
         e.stopPropagation();
+        if (shopBtn.disabled) return;
         const h = shopBtn.getAttribute("data-buy-shop");
         const p = PRODUCT_BY_HANDLE.get(h);
         if (p) {
           const v = getSelectedVariant(p);
-          window.location.href = `https://wishshipped.com/cart/${v.id}:1?payment=shop_pay`;
+          if (v && v.available !== false) {
+            window.location.href = `https://${CFG.domain}/cart/${v.id}:1?payment=shop_pay`;
+          }
         }
         return;
       }
 
-      // 10. Open PDP Modal
+      // 9. Open PDP Modal
       const openPdpEl = target.closest("[data-open-pdp]");
       if (openPdpEl && !target.closest("button")) {
         const h = openPdpEl.getAttribute("data-open-pdp");
@@ -1193,7 +1339,7 @@
         return;
       }
 
-      // 11. Cart Drawer Controls
+      // 10. Cart Drawer Controls
       if (target.closest("#open-cart-btn")) {
         document.getElementById("cart-drawer-backdrop").hidden = false;
         return;
@@ -1241,9 +1387,10 @@
         return;
       }
 
-      // 12. Close Modals
+      // 11. Close Modals
       if (target.id === "close-pdp-btn" || target.id === "pdp-modal") {
         document.getElementById("pdp-modal").hidden = true;
+        state.openPdpHandle = null;
         return;
       }
       if (target.closest("#open-login-btn") || target.id === "footer-login-trigger") {
@@ -1256,7 +1403,7 @@
         return;
       }
 
-      // 13. Pagination & Jump Buttons
+      // 12. Pagination
       if (target.id === "load-more-btn") {
         state.visibleCount += state.pageSize;
         renderCatalog();
@@ -1267,27 +1414,14 @@
         renderCatalog();
         return;
       }
-      if (target.id === "jump-lookbook-btn" || target.id === "footer-lookbook-link") {
-        e.preventDefault();
-        switchView("shop", { skipScroll: true });
-        document.getElementById("lookbook-section").scrollIntoView({ behavior: "smooth" });
-        return;
-      }
-      if (target.id === "jump-catalog-btn") {
-        document.getElementById("catalog-explorer").scrollIntoView({ behavior: "smooth" });
-        return;
-      }
 
-      // 14. Mobile Bottom Dock
+      // 13. Mobile Bottom Dock
       const mobBtn = target.closest("[data-mobile-nav]");
       if (mobBtn) {
         const dest = mobBtn.getAttribute("data-mobile-nav");
         if (dest === "shop") switchView("shop");
-        if (dest === "lookbook") {
-          switchView("shop", { skipScroll: true });
-          document.getElementById("lookbook-section").scrollIntoView({ behavior: "smooth" });
-        }
         if (dest === "story") switchView("about");
+        if (dest === "contact") switchView("contact");
         if (dest === "login") document.getElementById("login-modal").hidden = false;
         if (dest === "cart") document.getElementById("cart-drawer-backdrop").hidden = false;
         return;
@@ -1332,7 +1466,7 @@
       });
     }
 
-    // Customer Login Form (@t.shopifyemail.com verification flow)
+    // Customer Login Form
     const loginForm = document.getElementById("customer-login-form");
     if (loginForm) {
       loginForm.addEventListener("submit", (e) => {
@@ -1342,7 +1476,7 @@
         try {
           if (email && navigator.clipboard) navigator.clipboard.writeText(email);
         } catch (err) {}
-        const redirectUrl = `${DATA.store.loginRedirectUrl}&email=${encodeURIComponent(email)}`;
+        const redirectUrl = `https://${CFG.domain}/customer_authentication/redirect?locale=en&region_country=US&email=${encodeURIComponent(email)}`;
         window.location.href = redirectUrl;
       });
     }
@@ -1357,10 +1491,10 @@
         if (statusEl) {
           statusEl.hidden = false;
           statusEl.style.color = "var(--blue-bright)";
-          statusEl.textContent = "Sending your message to WishShipped.com...";
+          statusEl.textContent = "Sending...";
         }
         try {
-          await fetch("https://wishshipped.com/contact", {
+          await fetch(`https://${CFG.domain}/contact`, {
             method: "POST",
             mode: "no-cors",
             body: formData
@@ -1368,13 +1502,13 @@
         } catch (err) {}
         if (statusEl) {
           statusEl.style.color = "var(--green)";
-          statusEl.textContent = "✓ Thank you! Your message has been sent to WishShipped.com (customersupport@wishshipped.com).";
+          statusEl.textContent = "✓ Message sent.";
         }
         contactForm.reset();
       });
     }
 
-    // Footer Mailing List Signup (form_type=customer)
+    // Footer Mailing List Signup
     const newsletterForm = document.getElementById("footer-newsletter-form");
     if (newsletterForm) {
       newsletterForm.addEventListener("submit", async (e) => {
@@ -1382,7 +1516,7 @@
         const statusEl = document.getElementById("newsletter-status");
         const formData = new FormData(newsletterForm);
         try {
-          await fetch("https://wishshipped.com/contact#contact_form", {
+          await fetch(`https://${CFG.domain}/contact#contact_form`, {
             method: "POST",
             mode: "no-cors",
             body: formData
@@ -1391,25 +1525,37 @@
         if (statusEl) {
           statusEl.hidden = false;
           statusEl.style.color = "var(--green)";
-          statusEl.textContent = "✓ Subscribed to WishShipped.com mailing list!";
+          statusEl.textContent = "✓ Subscribed!";
         }
         newsletterForm.reset();
       });
     }
+
+    // Re-sync when tab becomes visible
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible" && CFG.autoSyncOnLoad !== false) {
+        syncWithShopifyStorefront();
+      }
+    });
   }
 
   // ========================================================================
-  // 12. Initialize Storefront
+  // 11. Initialize Storefront + Start Live Shopify Sync
   // ========================================================================
   function init() {
     renderFiltersAndTabs();
-    renderLookbook();
-    renderFrontpageShelf();
     renderCatalog();
     renderReviewsWall();
     renderPolicyContent("shipping");
     updateCartBadgesAndDrawer();
     bindEvents();
+
+    if (CFG.autoSyncOnLoad !== false) {
+      syncWithShopifyStorefront();
+      if (CFG.pollIntervalMs && CFG.pollIntervalMs >= 15000) {
+        setInterval(syncWithShopifyStorefront, CFG.pollIntervalMs);
+      }
+    }
   }
 
   if (document.readyState === "loading") {

@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>WishShipped.com — Disney Gifts Outlet | Kissimmee's Family Gift Shop Since 1985</title>
-  <meta name="description" content="Shop all 731 officially licensed Disney, Harry Potter, Star Wars, Marvel, and Minions apparel, 40oz tumblers, plush, towels, and souvenirs from WishShipped.com (Disney Gifts Outlet, Kissimmee FL)." />
+  <title>WishShipped.com — Disney Gifts Outlet</title>
+  <meta name="description" content="Shop officially licensed Disney, Harry Potter, Star Wars, Marvel, and Minions apparel, tumblers, plush, towels, and souvenirs from WishShipped.com." />
   <link rel="icon" type="image/png" href="assets/brand/logo.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -14,47 +14,24 @@
 <body>
 
   <!-- ====================================================================
-       1. Top 2D Utility Ticker Bar
-       ==================================================================== -->
-  <div class="utility-bar">
-    <div class="container utility-bar__inner">
-      <div class="utility-bar__badges">
-        <span class="utility-pill">📦 FREE USPS Shipping $49.99+ ($9.99 Flat Under $50)</span>
-        <span class="utility-pill">🏨 Free Central FL Hotel &amp; Disney Resort Local Delivery</span>
-        <span class="utility-pill">📍 3 Kissimmee Outlets: 4629 · 5001 · 7495 W Irlo Bronson Hwy</span>
-      </div>
-      <div class="utility-bar__links">
-        <a href="tel:4073974000">📞 (407) 397-4000</a>
-        <span>·</span>
-        <a href="mailto:customersupport@wishshipped.com">✉️ customersupport@wishshipped.com</a>
-        <span>·</span>
-        <span>🕘 Open Daily 9 AM – 10 PM</span>
-      </div>
-    </div>
-  </div>
-
-  <!-- ====================================================================
-       2. Sticky 2D Storefront Header
+       Sticky Storefront Header
        ==================================================================== -->
   <header class="site-header">
     <div class="container site-header__main">
       <!-- Brand Logo -->
-      <a href="#shop" class="brand-logo" id="logo-home-link" aria-label="WishShipped.com Home">
+      <a href="#shop" class="brand-logo" id="logo-home-link" aria-label="WishShipped.com Home" data-nav-view="shop">
         <div class="brand-logo__img-wrap">
-          <img src="assets/brand/logo.png" alt="WishShipped.com 2D Logo" width="52" height="52" fetchpriority="high" />
+          <img src="assets/brand/logo.png" alt="WishShipped.com" width="48" height="48" fetchpriority="high" />
         </div>
         <div class="brand-logo__text">
           <div class="brand-logo__title">
             <span class="w-blue">Wish</span><span class="w-red">Shipped</span><span class="w-ink">.com</span>
           </div>
-          <div class="brand-logo__sub">
-            <span class="brand-logo__sub-dot"></span>
-            Disney Gifts Outlet · Kissimmee, FL
-          </div>
+          <div class="brand-logo__sub">Disney Gifts Outlet</div>
         </div>
       </a>
 
-      <!-- Predictive Search Bar -->
+      <!-- Search Bar -->
       <div class="header-search" role="search">
         <form id="header-search-form" class="header-search__box" onsubmit="return false;">
           <svg class="header-search__icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.2">
@@ -65,25 +42,24 @@
             type="search"
             id="search-input"
             class="header-search__input"
-            placeholder="Search all 731 products (Stitch, Mickey, Harry Potter, 40oz Tumbler, Dress...)"
+            placeholder="Search products..."
             autocomplete="off"
-            aria-label="Search all 731 products"
+            aria-label="Search products"
           />
           <button type="button" id="search-clear-btn" class="header-search__clear" hidden>Clear</button>
-          <span class="header-search__count-badge" id="search-total-badge">731 Items</span>
         </form>
         <div id="predictive-dropdown" class="predictive-dropdown" hidden></div>
       </div>
 
-      <!-- Right Navigation & Account / Cart -->
+      <!-- Navigation & Account / Cart -->
       <div class="header-actions">
         <button type="button" class="nav-link-btn active hide-mobile" data-nav-view="shop">Shop</button>
         <button type="button" class="nav-link-btn hide-mobile" data-nav-view="about">Our Story</button>
-        <button type="button" class="nav-link-btn hide-mobile" data-nav-view="reviews">Reviews (1,114)</button>
+        <button type="button" class="nav-link-btn hide-mobile" data-nav-view="reviews">Reviews</button>
         <button type="button" class="nav-link-btn hide-mobile" data-nav-view="contact">Contact</button>
         <button type="button" class="nav-link-btn hide-mobile" data-nav-view="policies">Policies</button>
 
-        <button type="button" class="btn-2d" id="open-login-btn" title="Sign in with Shopify verification code (@t.shopifyemail.com)">
+        <button type="button" class="btn-2d" id="open-login-btn" title="Sign in">
           <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2">
             <circle cx="10" cy="6.5" r="3.5"></circle>
             <path d="M3.5 17c1.2-3.2 3.7-4.8 6.5-4.8s5.3 1.6 6.5 4.8" stroke-linecap="round"></path>
@@ -105,7 +81,7 @@
     <!-- Horizontal Collection Bar -->
     <nav class="collection-bar" aria-label="Product Collections">
       <div class="container collection-bar__inner" id="top-collection-tabs">
-        <!-- Populated dynamically by app.js -->
+        <!-- Populated dynamically by app.js (only non-empty collections) -->
       </div>
     </nav>
   </header>
@@ -119,96 +95,15 @@
          VIEW 1: SHOP & PRODUCT CATALOG (DEFAULT)
          ================================================================== -->
     <div id="view-shop" class="page-view">
-
-      <!-- Compact 2D Storefront Banner -->
-      <section class="shop-banner">
-        <div class="container">
-          <div class="shop-banner__card">
-            <div class="shop-banner__left">
-              <img
-                src="assets/brand/stamp-2d.png"
-                alt="WishShipped Kissimmee Stamp"
-                class="shop-banner__stamp"
-                width="84"
-                height="84"
-              />
-              <div>
-                <span class="shop-banner__kicker">★ Shalimar to WishShipped.com · Kissimmee's Oldest Gift Shop Family</span>
-                <h1 class="shop-banner__headline">731 Official Souvenirs, Apparel, Tumblers &amp; Plush</h1>
-                <p class="shop-banner__sub">
-                  Exact outlet prices ($7.99–$44.99) · Instant <strong>Buy with Shop (Shop Pay)</strong> checkout · Free shipping over $49.99
-                </p>
-              </div>
-            </div>
-            <div class="shop-banner__right">
-              <button type="button" class="btn-2d btn-2d--yellow" id="jump-lookbook-btn">✨ AI Model Lookbook</button>
-              <button type="button" class="btn-2d btn-2d--blue" id="jump-catalog-btn">🛍️ Browse All 731 Products</button>
-              <button type="button" class="btn-2d" data-nav-view="about">📖 Read Our Story</button>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- AI Model Lookbook Showcase (Redrawn Clothing w/ Blonde Female & Dark-Haired Male Models) -->
-      <section class="lookbook-section" id="lookbook-section">
-        <div class="container">
-          <div class="section-bar">
-            <div class="section-bar__title-group">
-              <span class="section-bar__badge">AI Model Lookbook</span>
-              <h2 class="section-bar__title">Apparel Modeled in Casual, Natural Poses</h2>
-            </div>
-            <div class="section-bar__controls" id="lookbook-filter-controls">
-              <button type="button" class="filter-pill-btn active" data-lookbook-filter="all">All Modeled Apparel</button>
-              <button type="button" class="filter-pill-btn" data-lookbook-filter="female">👩🏼 Blonde Fit Female Models</button>
-              <button type="button" class="filter-pill-btn" data-lookbook-filter="male">👨🏻 Dark-Haired Male Models</button>
-              <button type="button" class="filter-pill-btn" id="toggle-all-lookbook-view">🔄 Toggle Model / Original Flat-Lay</button>
-            </div>
-          </div>
-          <div class="lookbook-grid" id="lookbook-grid">
-            <!-- Populated by app.js -->
-          </div>
-        </div>
-      </section>
-
-      <!-- Homepage Featured Shelves (Matching wishshipped.com frontpage sections) -->
-      <section class="shelf-section" id="frontpage-shelves">
-        <div class="container">
-          <div class="section-bar">
-            <div class="section-bar__title-group">
-              <span class="section-bar__badge" style="background:var(--blue-bright);">Frontpage Highlights</span>
-              <h2 class="section-bar__title">Featured 40oz Tumblers, Plush, Towels &amp; Sun-Staches</h2>
-            </div>
-            <div class="section-bar__controls" id="shelf-tabs">
-              <button type="button" class="filter-pill-btn active" data-shelf="tumblers">🥤 40oz &amp; 3D Tumblers ($21.99)</button>
-              <button type="button" class="filter-pill-btn" data-shelf="plush">🧸 15"–25" Plush ($24.99)</button>
-              <button type="button" class="filter-pill-btn" data-shelf="towels">🏖️ Beach Towels ($16.99)</button>
-              <button type="button" class="filter-pill-btn" data-shelf="sunglasses">🕶️ Sun-Staches ($14.99)</button>
-              <button type="button" class="filter-pill-btn" data-shelf="sets">👚 2-Piece Lounge Sets ($34.99)</button>
-            </div>
-          </div>
-          <div class="shelf-scroll" id="shelf-grid">
-            <!-- Populated by app.js -->
-          </div>
-        </div>
-      </section>
-
-      <!-- Full 731-Product Interactive Catalog -->
       <section class="catalog-section" id="catalog-explorer">
         <div class="container">
-          <div class="section-bar">
-            <div class="section-bar__title-group">
-              <span class="section-bar__badge" style="background:var(--ink);">Full Outlet Catalog</span>
-              <h2 class="section-bar__title" id="catalog-heading-title">All Products (731)</h2>
-            </div>
-          </div>
-
           <div class="catalog-layout">
-            <!-- Left 2D Filter Sidebar -->
+            <!-- Left Filter Sidebar -->
             <aside class="catalog-sidebar" aria-label="Catalog Filters">
               <div class="sidebar-group">
                 <div class="sidebar-group__title">
                   <span>Collections</span>
-                  <button type="button" id="reset-filters-btn" class="header-search__clear" style="margin:0;">Reset All</button>
+                  <button type="button" id="reset-filters-btn" class="header-search__clear" style="margin:0;">Reset</button>
                 </div>
                 <div class="sidebar-list" id="sidebar-collections">
                   <!-- Populated by app.js -->
@@ -216,14 +111,14 @@
               </div>
 
               <div class="sidebar-group">
-                <div class="sidebar-group__title">Character / World</div>
+                <div class="sidebar-group__title">Character</div>
                 <div class="tag-cloud" id="sidebar-characters">
                   <!-- Populated by app.js -->
                 </div>
               </div>
 
               <div class="sidebar-group">
-                <div class="sidebar-group__title">Product Type</div>
+                <div class="sidebar-group__title">Category</div>
                 <div class="sidebar-list" id="sidebar-types">
                   <!-- Populated by app.js -->
                 </div>
@@ -234,16 +129,17 @@
             <div>
               <div class="catalog-toolbar">
                 <div class="catalog-toolbar__status">
-                  <span id="catalog-count-label">Showing 1–48 of 731 Products</span>
+                  <span id="catalog-heading-title">All Products</span>
+                  <span id="catalog-count-label" style="color:var(--ink-muted);font-weight:600;font-size:13px;"></span>
                   <div id="active-filter-chips" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
                 </div>
                 <div class="catalog-toolbar__controls">
-                  <label for="sort-select" style="font-size:12.5px;font-weight:700;">Sort by:</label>
+                  <button type="button" class="btn-2d mobile-filter-toggle-btn" id="mobile-filter-toggle-btn">Filters</button>
+                  <label for="sort-select" style="font-size:12.5px;font-weight:700;">Sort:</label>
                   <select id="sort-select" class="select-2d">
-                    <option value="featured">Featured (Store Order)</option>
-                    <option value="ai-first">✨ AI Modeled Apparel First</option>
-                    <option value="price-asc">Price: Low to High ($7.99 → $44.99)</option>
-                    <option value="price-desc">Price: High to Low ($44.99 → $7.99)</option>
+                    <option value="featured">Featured</option>
+                    <option value="price-asc">Price: Low to High</option>
+                    <option value="price-desc">Price: High to Low</option>
                     <option value="title-asc">Name: A to Z</option>
                     <option value="title-desc">Name: Z to A</option>
                   </select>
@@ -257,8 +153,8 @@
               <div class="catalog-pagination" id="catalog-pagination">
                 <div class="pagination-progress" id="pagination-progress-text"></div>
                 <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;">
-                  <button type="button" class="btn-2d btn-2d--yellow" id="load-more-btn">Load Next 48 Products</button>
-                  <button type="button" class="btn-2d" id="load-all-btn">Show All Matching Products</button>
+                  <button type="button" class="btn-2d btn-2d--yellow" id="load-more-btn">Load More</button>
+                  <button type="button" class="btn-2d" id="load-all-btn">Show All</button>
                 </div>
               </div>
             </div>
@@ -273,12 +169,11 @@
     <section id="view-about" class="page-panel" hidden>
       <div class="container">
         <div class="paper-card-2d">
-          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:8px;">
-            <span class="badge-2d badge-2d--ai">wishshipped.com/pages/about-us</span>
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:12px;">
+            <h1 class="paper-card-2d__title" style="margin:0;border:none;padding:0;">Our Story</h1>
             <button type="button" class="btn-2d" data-nav-view="shop">← Back to Shop</button>
           </div>
-          <h1 class="paper-card-2d__title">Our Story</h1>
-          <div class="our-story-paragraphs" id="verbatim-our-story">
+          <div class="our-story-paragraphs" id="verbatim-our-story" style="border-top:var(--border-2d);padding-top:18px;">
             <p>Some kids get piano lessons. We got taught how to tie a proper double knot on a shopping bag before we were tall enough to see over the counter.</p>
             <p>Our dad, Mr. Khan, came over from the UK. He was sick of the gray weather and even more sick of the taxes, so he traded it all for Florida sunshine and built Shalimar from the ground up into the oldest gift shop in Kissimmee. From day one, he wasn't just running a shop. He was training future shopkeepers. Dad raised four kids, and three of us ended up behind that same counter he started at. Long before we understood the business, we understood the bag lesson: hand the customer their Disney souvenirs, their beach towels and swim goggles, tie the handles in a proper double knot so nothing spills on the walk back to the car, and send them off with a smile. Do that a few thousand times as a kid and it becomes part of you. By the time we were teenagers, Dad had basically been grooming us for this our whole lives. We just didn't get a say in the matter, and honestly, we're glad we didn't.</p>
             <p>Dad's retired now, finally getting to relax after decades of turning three of his kids into a small business dynasty. The three of us run things today, stocked floor to ceiling with everything a Florida vacation calls for: Disney merchandise, beach gear, souvenirs, the works. We take seriously what he built. It isn't something you find twice. Over the years, we've had an incredible cross section of the world walk through our doors: tourists from every corner of the globe, folks speaking every language you can think of. We've even had the Amish stop in, which might be the single best proof that a great gift shop pulls people from every walk of life imaginable. There's simply no other shop in this town with that kind of heritage. We checked.</p>
@@ -286,33 +181,12 @@
             <p>Find us at any of our three Kissimmee locations: 4629, 5001, or 7495 West Irlo Bronson Memorial Highway. Or shop us online anytime. Proudly American owned, proudly family run, and proudly raised for exactly this: double knots and all.</p>
             <p>Shalimar to WishShipped.com. Three brothers, one legacy, no days off.</p>
           </div>
-
-          <div style="margin-top:28px;padding-top:22px;border-top:2px dashed var(--ink);display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px;">
-            <div class="review-card-2d" style="background:var(--bg-canvas);">
-              <span class="badge-2d">Location #1</span>
-              <strong>4629 W Irlo Bronson Memorial Hwy</strong>
-              <span style="font-size:13px;color:var(--ink-muted);">Kissimmee, FL 34746 · Open 9 AM – 10 PM</span>
-              <a href="https://www.google.com/maps/search/?api=1&query=4629+W+Irlo+Bronson+Memorial+Hwy+Kissimmee+FL+34746" target="_blank" rel="noopener" class="btn-2d" style="margin-top:auto;">📍 Open in Google Maps</a>
-            </div>
-            <div class="review-card-2d" style="background:var(--bg-yellow-tint);">
-              <span class="badge-2d badge-2d--ai">Location #2 · Disney Gifts Outlet</span>
-              <strong>5001 W Irlo Bronson Memorial Hwy</strong>
-              <span style="font-size:13px;color:var(--ink-muted);">Kissimmee, FL 34746 · (407) 397-4000</span>
-              <a href="https://www.google.com/maps/place/Disney+Gifts+Outlet/@28.3337419,-81.4835196,19.56z/data=!4m6!3m5!1s0x88dd81977da4af2f:0x26aee9b920a5bc1d!8m2!3d28.3336397!4d-81.4831219!16s%2Fg%2F11bz_004rt" target="_blank" rel="noopener" class="btn-2d btn-2d--yellow" style="margin-top:auto;">📍 Open Flagship on Maps</a>
-            </div>
-            <div class="review-card-2d" style="background:var(--bg-canvas);">
-              <span class="badge-2d">Location #3</span>
-              <strong>7495 W Irlo Bronson Memorial Hwy</strong>
-              <span style="font-size:13px;color:var(--ink-muted);">Kissimmee, FL 34746 · Open 9 AM – 10 PM</span>
-              <a href="https://www.google.com/maps/search/?api=1&query=7495+W+Irlo+Bronson+Memorial+Hwy+Kissimmee+FL+34746" target="_blank" rel="noopener" class="btn-2d" style="margin-top:auto;">📍 Open in Google Maps</a>
-            </div>
-          </div>
         </div>
       </div>
     </section>
 
     <!-- ==================================================================
-         VIEW 3: GOOGLE MAPS REVIEWS & STORE INFO (#view-reviews)
+         VIEW 3: GOOGLE MAPS REVIEWS (#view-reviews)
          ================================================================== -->
     <section id="view-reviews" class="page-panel" hidden>
       <div class="container">
@@ -320,19 +194,17 @@
           <div class="rating-big-box">
             <div class="rating-big-box__num">3.7</div>
             <div class="rating-big-box__stars">★★★★☆</div>
-            <div class="rating-big-box__count">1,114 Google Reviews</div>
+            <div class="rating-big-box__count">1,114 Reviews</div>
           </div>
           <div>
-            <span class="badge-2d badge-2d--ai">Verified Google Maps Outlet Profile</span>
-            <h1 style="font-family:var(--font-display);font-size:28px;margin:6px 0;">Disney Gifts Outlet · 5001 W Irlo Bronson Memorial Hwy</h1>
+            <h1 style="font-family:var(--font-display);font-size:26px;margin-bottom:6px;">Disney Gifts Outlet · 5001 W Irlo Bronson Memorial Hwy</h1>
             <p style="font-size:14px;color:var(--ink-muted);margin-bottom:10px;">
               “Step into a world of wonder at Disney Gifts Clearance, Kissimmee's original and most established gift shop since 1985! Located near Disney World, we offer an enchanting array of officially licensed treasures. Discover the perfect keepsake from beloved brands like Disney, Harry Potter, Marvel, and Mario. Find that special something for everyone at the premier destination for gifts and souvenirs.”
             </p>
             <div style="display:flex;gap:8px;flex-wrap:wrap;">
-              <span class="utility-pill">♿ Wheelchair accessible entrance</span>
-              <span class="utility-pill">🅿️ Wheelchair accessible parking lot</span>
+              <span class="utility-pill">♿ Wheelchair accessible</span>
               <span class="utility-pill">📞 (407) 397-4000</span>
-              <span class="utility-pill">🕘 Open Daily 9:00 AM – 10:00 PM</span>
+              <span class="utility-pill">🕘 9:00 AM – 10:00 PM</span>
             </div>
           </div>
           <div style="display:flex;flex-direction:column;gap:8px;">
@@ -342,49 +214,9 @@
               rel="noopener"
               class="btn-2d btn-2d--blue"
             >
-              🗺️ View on Google Maps
+              Google Maps
             </a>
-            <button type="button" class="btn-2d" data-nav-view="shop">🛍️ Shop Online Catalog</button>
-          </div>
-        </div>
-
-        <!-- Star Distribution & Review Topics -->
-        <div class="paper-card-2d" style="max-width:none;margin-bottom:24px;padding:20px;">
-          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:24px;align-items:center;">
-            <div>
-              <h3 style="font-family:var(--font-display);margin-bottom:10px;">Rating Distribution (1,114 Reviews)</h3>
-              <div style="display:flex;flex-direction:column;gap:6px;font-family:var(--font-mono);font-size:12px;">
-                <div style="display:grid;grid-template-columns:45px 1fr 50px;align-items:center;gap:8px;">
-                  <span>5 ★</span>
-                  <div class="shipping-progress-track" style="margin:0;"><div class="shipping-progress-fill" style="width:42%;background:var(--green);"></div></div>
-                  <span>467</span>
-                </div>
-                <div style="display:grid;grid-template-columns:45px 1fr 50px;align-items:center;gap:8px;">
-                  <span>4 ★</span>
-                  <div class="shipping-progress-track" style="margin:0;"><div class="shipping-progress-fill" style="width:19%;background:var(--mint);"></div></div>
-                  <span>213</span>
-                </div>
-                <div style="display:grid;grid-template-columns:45px 1fr 50px;align-items:center;gap:8px;">
-                  <span>3 ★</span>
-                  <div class="shipping-progress-track" style="margin:0;"><div class="shipping-progress-fill" style="width:18.5%;background:var(--yellow);"></div></div>
-                  <span>207</span>
-                </div>
-                <div style="display:grid;grid-template-columns:45px 1fr 50px;align-items:center;gap:8px;">
-                  <span>2 ★</span>
-                  <div class="shipping-progress-track" style="margin:0;"><div class="shipping-progress-fill" style="width:9%;background:#F97316;"></div></div>
-                  <span>100</span>
-                </div>
-                <div style="display:grid;grid-template-columns:45px 1fr 50px;align-items:center;gap:8px;">
-                  <span>1 ★</span>
-                  <div class="shipping-progress-track" style="margin:0;"><div class="shipping-progress-fill" style="width:11.4%;background:var(--red);"></div></div>
-                  <span>127</span>
-                </div>
-              </div>
-            </div>
-            <div>
-              <h3 style="font-family:var(--font-display);margin-bottom:10px;">Most Mentioned Topics on Google</h3>
-              <div class="tag-cloud" id="reviews-topic-chips"></div>
-            </div>
+            <button type="button" class="btn-2d" data-nav-view="shop">← Back to Shop</button>
           </div>
         </div>
 
@@ -395,19 +227,13 @@
     </section>
 
     <!-- ==================================================================
-         VIEW 4: CONTACT & CENTRAL FL RESORT DELIVERY (#view-contact)
+         VIEW 4: CONTACT (#view-contact)
          ================================================================== -->
     <section id="view-contact" class="page-panel" hidden>
       <div class="container">
         <div class="contact-grid">
-          <!-- Shopify Contact Form -->
           <div class="paper-card-2d" style="margin:0;">
-            <span class="badge-2d">wishshipped.com/pages/contact</span>
-            <h1 class="paper-card-2d__title" style="margin-top:8px;">Contact Us</h1>
-            <p style="font-size:14px;color:var(--ink-muted);margin-bottom:16px;">
-              Questions about an order, wholesale/bulk souvenir gifts, or requesting <strong>Complimentary Central Florida Hotel / Disney Resort Local Delivery</strong>? Send us a message below or email <a href="mailto:customersupport@wishshipped.com" style="color:var(--blue-bright);font-weight:700;">customersupport@wishshipped.com</a>.
-            </p>
-
+            <h1 class="paper-card-2d__title">Contact</h1>
             <form
               method="post"
               action="https://wishshipped.com/contact#ContactForm-AOHlidVdma25MM1czc__contact_form_UwiCkQ"
@@ -420,52 +246,44 @@
 
               <div class="form-field">
                 <label for="ContactForm-name">Name</label>
-                <input type="text" id="ContactForm-name" name="contact[name]" class="input-2d" autocomplete="name" placeholder="Your full name" required />
+                <input type="text" id="ContactForm-name" name="contact[name]" class="input-2d" autocomplete="name" placeholder="Name" required />
               </div>
 
               <div class="form-field">
                 <label for="ContactForm-email">Email *</label>
-                <input type="email" id="ContactForm-email" name="contact[email]" class="input-2d" autocomplete="email" placeholder="you@example.com" required />
+                <input type="email" id="ContactForm-email" name="contact[email]" class="input-2d" autocomplete="email" placeholder="Email" required />
               </div>
 
               <div class="form-field">
-                <label for="ContactForm-phone">Phone</label>
-                <input type="tel" id="ContactForm-phone" name="contact[phone]" class="input-2d" autocomplete="tel" placeholder="(407) 555-0199" />
+                <label for="ContactForm-phone">Phone number</label>
+                <input type="tel" id="ContactForm-phone" name="contact[phone]" class="input-2d" autocomplete="tel" placeholder="Phone number" />
               </div>
 
               <div class="form-field">
                 <label for="ContactForm-body">Comment</label>
-                <textarea rows="5" id="ContactForm-body" name="contact[body]" class="input-2d" placeholder="How can we help? (Include your Order # and Resort/Room details if requesting Central FL hotel delivery)" required></textarea>
+                <textarea rows="5" id="ContactForm-body" name="contact[body]" class="input-2d" placeholder="Comment" required></textarea>
               </div>
 
-              <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
-                <button type="submit" class="btn-2d btn-2d--blue">Submit to WishShipped.com</button>
-                <a href="mailto:customersupport@wishshipped.com" class="btn-2d">✉️ Direct Email</a>
-              </div>
+              <button type="submit" class="btn-2d btn-2d--blue">Send</button>
               <div id="contact-form-status" style="margin-top:12px;font-size:13.5px;font-weight:700;" hidden></div>
             </form>
           </div>
 
-          <!-- Store Locations & Shipping Info -->
           <div style="display:flex;flex-direction:column;gap:16px;">
-            <div class="paper-card-2d" style="margin:0;padding:24px;background:var(--bg-yellow-tint);">
-              <h2 style="font-family:var(--font-display);font-size:22px;margin-bottom:10px;">🏨 Central Florida Resort &amp; Disney Hotel Delivery</h2>
-              <p style="font-size:14px;line-height:1.6;">
-                Staying near Walt Disney World or Kissimmee? We offer <strong>complimentary local delivery</strong> to select hotels, resorts, and Disney-area properties in Central Florida on a case-by-case basis. Email <a href="mailto:customersupport@wishshipped.com" style="text-decoration:underline;font-weight:700;">customersupport@wishshipped.com</a> with your order number and resort/room details after checkout!
-              </p>
-            </div>
-
             <div class="paper-card-2d" style="margin:0;padding:24px;">
-              <h2 style="font-family:var(--font-display);font-size:22px;margin-bottom:12px;">📍 Visit Our 3 Kissimmee Gift Shops</h2>
-              <div style="display:flex;flex-direction:column;gap:12px;font-size:14px;">
+              <h2 style="font-family:var(--font-display);font-size:20px;margin-bottom:12px;">Kissimmee Locations</h2>
+              <div style="display:flex;flex-direction:column;gap:10px;font-size:14px;">
                 <div style="padding:10px;border:var(--border-2d);border-radius:8px;background:var(--bg-canvas);">
-                  <strong>Location 1:</strong> 4629 W Irlo Bronson Memorial Hwy, Kissimmee, FL 34746
+                  <strong>4629 W Irlo Bronson Memorial Hwy</strong><br />Kissimmee, FL 34746
                 </div>
                 <div style="padding:10px;border:var(--border-2d);border-radius:8px;background:var(--bg-canvas);">
-                  <strong>Location 2 (Disney Gifts Outlet):</strong> 5001 W Irlo Bronson Memorial Hwy, Kissimmee, FL 34746 · <strong>(407) 397-4000</strong>
+                  <strong>5001 W Irlo Bronson Memorial Hwy</strong><br />Kissimmee, FL 34746 · (407) 397-4000
                 </div>
                 <div style="padding:10px;border:var(--border-2d);border-radius:8px;background:var(--bg-canvas);">
-                  <strong>Location 3:</strong> 7495 W Irlo Bronson Memorial Hwy, Kissimmee, FL 34746
+                  <strong>7495 W Irlo Bronson Memorial Hwy</strong><br />Kissimmee, FL 34746
+                </div>
+                <div style="padding-top:6px;">
+                  <a href="mailto:customersupport@wishshipped.com" style="font-weight:700;text-decoration:underline;">customersupport@wishshipped.com</a>
                 </div>
               </div>
             </div>
@@ -475,25 +293,23 @@
     </section>
 
     <!-- ==================================================================
-         VIEW 5: NEWS (/blogs/news) & POLICIES (/policies/* + /pages/data-sharing-opt-out)
+         VIEW 5: POLICIES & LEGAL NOTICES (#view-policies)
          ================================================================== -->
     <section id="view-policies" class="page-panel" hidden>
       <div class="container">
         <div class="paper-card-2d">
           <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:16px;">
-            <span class="badge-2d">Official Legal Notices &amp; Store Policies</span>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;" id="policy-tab-buttons">
+              <button type="button" class="filter-pill-btn active" data-policy-key="shipping">Shipping Policy</button>
+              <button type="button" class="filter-pill-btn" data-policy-key="refund">Refund Policy</button>
+              <button type="button" class="filter-pill-btn" data-policy-key="privacy">Privacy Policy</button>
+              <button type="button" class="filter-pill-btn" data-policy-key="terms">Terms of Service</button>
+              <button type="button" class="filter-pill-btn" data-policy-key="legal">Legal Notice</button>
+              <button type="button" class="filter-pill-btn" data-policy-key="contactInfo">Contact Information</button>
+              <button type="button" class="filter-pill-btn" data-policy-key="optOut">Your Privacy Choices</button>
+              <button type="button" class="filter-pill-btn" data-policy-key="news">News</button>
+            </div>
             <button type="button" class="btn-2d" data-nav-view="shop">← Back to Shop</button>
-          </div>
-
-          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px;" id="policy-tab-buttons">
-            <button type="button" class="filter-pill-btn active" data-policy-key="shipping">📦 Shipping Policy</button>
-            <button type="button" class="filter-pill-btn" data-policy-key="refund">↩️ Refund Policy</button>
-            <button type="button" class="filter-pill-btn" data-policy-key="privacy">🔒 Privacy Policy</button>
-            <button type="button" class="filter-pill-btn" data-policy-key="terms">📜 Terms of Service</button>
-            <button type="button" class="filter-pill-btn" data-policy-key="legal">⚖️ Legal Notice</button>
-            <button type="button" class="filter-pill-btn" data-policy-key="contactInfo">✉️ Contact Information</button>
-            <button type="button" class="filter-pill-btn" data-policy-key="optOut">🛡️ Your Privacy Choices (Opt-Out)</button>
-            <button type="button" class="filter-pill-btn" data-policy-key="news">📰 News (/blogs/news)</button>
           </div>
 
           <div id="policy-content-box" class="policy-rte">
@@ -510,7 +326,7 @@
        ==================================================================== -->
   <div id="pdp-modal" class="modal-backdrop" hidden>
     <div class="modal-card-2d" role="dialog" aria-modal="true" aria-labelledby="pdp-modal-title">
-      <button type="button" class="modal-close-btn" id="close-pdp-btn" aria-label="Close product details">✕</button>
+      <button type="button" class="modal-close-btn" id="close-pdp-btn" aria-label="Close">✕</button>
       <div id="pdp-modal-body">
         <!-- Populated by app.js -->
       </div>
@@ -518,38 +334,35 @@
   </div>
 
   <!-- ====================================================================
-       CUSTOMER LOGIN / @t.shopifyemail.com VERIFICATION MODAL (#login-modal)
+       CUSTOMER LOGIN MODAL (#login-modal)
        ==================================================================== -->
   <div id="login-modal" class="modal-backdrop" hidden>
-    <div class="modal-card-2d" style="max-width:500px;padding:28px;" role="dialog" aria-modal="true" aria-labelledby="login-modal-title">
-      <button type="button" class="modal-close-btn" id="close-login-btn" aria-label="Close login dialog" style="margin:0;">✕</button>
+    <div class="modal-card-2d" style="max-width:440px;padding:26px;" role="dialog" aria-modal="true" aria-labelledby="login-modal-title">
+      <button type="button" class="modal-close-btn" id="close-login-btn" aria-label="Close" style="margin:0;">✕</button>
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
-        <img src="assets/brand/logo.png" alt="WishShipped" width="48" height="48" style="border:var(--border-2d);border-radius:10px;" />
-        <div>
-          <span class="badge-2d badge-2d--ai">Passwordless Customer Account</span>
-          <h2 id="login-modal-title" style="font-family:var(--font-display);font-size:24px;">Sign in to WishShipped.com</h2>
-        </div>
+        <img src="assets/brand/logo.png" alt="WishShipped" width="44" height="44" style="border:var(--border-2d);border-radius:10px;" />
+        <h2 id="login-modal-title" style="font-family:var(--font-display);font-size:22px;">Sign in</h2>
       </div>
 
-      <p style="font-size:14px;color:var(--ink-muted);margin-bottom:16px;">
-        WishShipped.com uses Shopify's secure passwordless sign-in. Enter your email to receive a <strong>6-digit verification code sent from <code>@t.shopifyemail.com</code></strong> to view orders, track USPS packages, or check out faster with <strong>Shop Pay</strong>.
+      <p style="font-size:13.5px;color:var(--ink-muted);margin-bottom:14px;">
+        Enter your email to receive a 6-digit login code.
       </p>
 
       <form id="customer-login-form">
         <div class="form-field">
-          <label for="customer-login-email">Your Email Address</label>
+          <label for="customer-login-email">Email</label>
           <input
             type="email"
             id="customer-login-email"
             class="input-2d"
-            placeholder="you@example.com"
+            placeholder="Email"
             autocomplete="email"
             required
           />
         </div>
-        <div style="display:flex;flex-direction:column;gap:10px;margin-top:16px;">
-          <button type="submit" class="btn-2d btn-2d--blue" style="width:100%;padding:12px;">
-            🔑 Continue to Verification Code (@t.shopifyemail.com)
+        <div style="display:flex;flex-direction:column;gap:10px;margin-top:14px;">
+          <button type="submit" class="btn-2d btn-2d--blue" style="width:100%;padding:11px;">
+            Continue
           </button>
           <a
             href="https://shopify.com/102987006274/account"
@@ -558,14 +371,10 @@
             class="btn-2d btn-2d--shop"
             style="width:100%;padding:11px;text-align:center;"
           >
-            ⚡ Sign in with Shop App / Shop Pay
+            Sign in with Shop
           </a>
         </div>
       </form>
-
-      <div style="margin-top:16px;padding:12px;background:var(--bg-yellow-tint);border:1.5px solid var(--ink);border-radius:8px;font-size:12px;">
-        <strong>💡 Tip for Verification Codes:</strong> Your 6-digit login code is emailed immediately from WishShipped via <code>@t.shopifyemail.com</code>. Check your inbox or Promotions tab if it doesn't appear within 30 seconds.
-      </div>
     </div>
   </div>
 
@@ -576,14 +385,14 @@
     <aside class="cart-drawer" aria-label="Shopping Bag">
       <div class="cart-drawer__header">
         <div style="display:flex;align-items:center;gap:8px;">
-          <strong style="font-family:var(--font-display);font-size:20px;">🛍️ Your Shopping Bag</strong>
+          <strong style="font-family:var(--font-display);font-size:20px;">Shopping Bag</strong>
           <span class="cart-trigger-count" id="drawer-cart-count">0</span>
         </div>
-        <button type="button" class="btn-2d" id="close-cart-btn" style="padding:4px 10px;">✕ Close</button>
+        <button type="button" class="btn-2d" id="close-cart-btn" style="padding:4px 10px;">✕</button>
       </div>
 
       <div class="cart-drawer__shipping-bar">
-        <div id="shipping-bar-text">Add $49.99 more for FREE USPS Shipping!</div>
+        <div id="shipping-bar-text">Add $49.99 more for free shipping</div>
         <div class="shipping-progress-track">
           <div class="shipping-progress-fill" id="shipping-bar-fill" style="width:0%;"></div>
         </div>
@@ -598,39 +407,32 @@
           <span>Subtotal</span>
           <span id="cart-subtotal-amount" style="font-family:var(--font-mono);font-size:18px;">$0.00</span>
         </div>
-        <p style="font-size:11.5px;color:var(--ink-muted);">
-          Shipping &amp; taxes calculated at checkout. Free shipping automatically applied at $49.99+.
-        </p>
         <button type="button" class="btn-2d btn-2d--shop" id="cart-shop-pay-btn" style="width:100%;padding:12px;font-size:15px;">
-          ⚡ Buy with Shop (Shop Pay Express)
+          Buy with Shop
         </button>
         <button type="button" class="btn-2d btn-2d--blue" id="cart-checkout-btn" style="width:100%;padding:12px;font-size:15px;">
-          🔒 Proceed to Official WishShipped Checkout →
+          Checkout
         </button>
       </div>
     </aside>
   </div>
 
   <!-- ====================================================================
-       SITE FOOTER (Newsletter Mailing List + Socials + Verbatim Links)
+       SITE FOOTER (Newsletter + Socials + Policies)
        ==================================================================== -->
   <footer class="site-footer">
     <div class="container">
       <div class="footer-grid">
         <!-- Col 1: Brand & Mailing List -->
         <div>
-          <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
-            <img src="assets/brand/logo.png" alt="WishShipped.com" width="44" height="44" style="border:var(--border-2d);border-radius:8px;" />
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+            <img src="assets/brand/logo.png" alt="WishShipped.com" width="40" height="40" style="border:var(--border-2d);border-radius:8px;" />
             <div>
-              <strong style="font-family:var(--font-display);font-size:20px;">WishShipped.com</strong>
-              <div style="font-size:12px;color:var(--ink-muted);font-weight:700;">Disney Gifts Outlet · Kissimmee, FL</div>
+              <strong style="font-family:var(--font-display);font-size:19px;">WishShipped.com</strong>
+              <div style="font-size:12px;color:var(--ink-muted);font-weight:700;">Disney Gifts Outlet</div>
             </div>
           </div>
-          <p style="font-size:13.5px;color:var(--ink-muted);margin-bottom:14px;">
-            Shalimar to WishShipped.com. Three brothers, one legacy, no days off. Join our mailing list for new arrivals and Kissimmee outlet specials:
-          </p>
 
-          <!-- Official Shopify Mailing List Signup Form (form_type=customer) -->
           <form
             method="post"
             action="https://wishshipped.com/contact#contact_form"
@@ -645,68 +447,69 @@
               name="contact[email]"
               id="newsletter-email-input"
               class="input-2d"
-              placeholder="Email address"
+              placeholder="Email"
               required
-              aria-label="Email address for mailing list"
+              aria-label="Email"
             />
             <button type="submit" class="btn-2d btn-2d--yellow">Sign Up</button>
           </form>
           <div id="newsletter-status" style="margin-top:8px;font-size:12.5px;font-weight:700;" hidden></div>
 
-          <!-- Official Social Links -->
           <div class="social-pills">
             <a href="https://www.facebook.com/profile.php?id=61593805241055" target="_blank" rel="noopener" class="btn-2d" style="padding:5px 10px;font-size:12px;">Facebook</a>
-            <a href="https://www.instagram.com/wishshipped/" target="_blank" rel="noopener" class="btn-2d" style="padding:5px 10px;font-size:12px;">Instagram @wishshipped</a>
-            <a href="https://www.tiktok.com/@wishshipped" target="_blank" rel="noopener" class="btn-2d" style="padding:5px 10px;font-size:12px;">TikTok @wishshipped</a>
+            <a href="https://www.instagram.com/wishshipped/" target="_blank" rel="noopener" class="btn-2d" style="padding:5px 10px;font-size:12px;">Instagram</a>
+            <a href="https://www.tiktok.com/@wishshipped" target="_blank" rel="noopener" class="btn-2d" style="padding:5px 10px;font-size:12px;">TikTok</a>
           </div>
         </div>
 
         <!-- Col 2: Shop Collections -->
         <div>
-          <h3 class="footer-col__title">Shop Collections</h3>
-          <ul class="footer-links">
-            <li><a href="#catalog-explorer" data-col-jump="all">All Products (731)</a></li>
-            <li><a href="#lookbook-section" id="footer-lookbook-link">✨ AI Model Apparel Lookbook</a></li>
-            <li><a href="#catalog-explorer" data-col-jump="adult-t-shirts">Adult T-Shirts &amp; Apparel (328)</a></li>
-            <li><a href="#catalog-explorer" data-col-jump="kids">Kids Apparel &amp; Gifts (141)</a></li>
-            <li><a href="#catalog-explorer" data-col-jump="accessories">Accessories &amp; Hats (112)</a></li>
-            <li><a href="#catalog-explorer" data-col-jump="drinkware">Drinkware &amp; 40oz Tumblers (99)</a></li>
-            <li><a href="#catalog-explorer" data-col-jump="plush">Character Plush (28)</a></li>
-            <li><a href="#catalog-explorer" data-col-jump="towels">Beach &amp; Resort Towels (23)</a></li>
+          <h3 class="footer-col__title">Collections</h3>
+          <ul class="footer-links" id="footer-collection-links">
+            <li><a href="#catalog-explorer" data-col-jump="all">All Products</a></li>
+            <li><a href="#catalog-explorer" data-col-jump="adult-t-shirts">Adult T-Shirts</a></li>
+            <li><a href="#catalog-explorer" data-col-jump="kids">Kids</a></li>
+            <li><a href="#catalog-explorer" data-col-jump="accessories">Accessories</a></li>
+            <li><a href="#catalog-explorer" data-col-jump="drinkware">Drinkware</a></li>
+            <li><a href="#catalog-explorer" data-col-jump="plush">Plush</a></li>
+            <li><a href="#catalog-explorer" data-col-jump="towels">Towels</a></li>
           </ul>
         </div>
 
-        <!-- Col 3: Pages & Customer Account -->
+        <!-- Col 3: Store & Account -->
         <div>
-          <h3 class="footer-col__title">Store &amp; Account</h3>
+          <h3 class="footer-col__title">Store</h3>
           <ul class="footer-links">
-            <li><a href="#about" data-nav-view="about">Our Story (About Us)</a></li>
-            <li><a href="#reviews" data-nav-view="reviews">Google Reviews (1,114)</a></li>
-            <li><a href="#contact" data-nav-view="contact">Contact Us &amp; Resort Delivery</a></li>
-            <li><a href="#policies" data-policy-jump="news">News (/blogs/news)</a></li>
-            <li><a href="https://wishshipped.com/customer_authentication/redirect?locale=en&region_country=US" id="footer-login-trigger">Customer Log In (@t.shopifyemail.com)</a></li>
-            <li><a href="https://shopify.com/102987006274/account" target="_blank" rel="noopener">Track Order with Shop</a></li>
+            <li><a href="#about" data-nav-view="about">Our Story</a></li>
+            <li><a href="#reviews" data-nav-view="reviews">Reviews</a></li>
+            <li><a href="#contact" data-nav-view="contact">Contact</a></li>
+            <li><a href="#policies" data-policy-jump="news">News</a></li>
+            <li><a href="https://wishshipped.com/customer_authentication/redirect?locale=en&region_country=US" id="footer-login-trigger">Log in</a></li>
           </ul>
         </div>
 
         <!-- Col 4: Legal Notices & Policies -->
         <div>
-          <h3 class="footer-col__title">Policies &amp; Legal Notices</h3>
+          <h3 class="footer-col__title">Policies</h3>
           <ul class="footer-links">
             <li><a href="#policies" data-policy-jump="privacy">Privacy Policy</a></li>
-            <li><a href="#policies" data-policy-jump="refund">Refund Policy (30-Day Returns)</a></li>
-            <li><a href="#policies" data-policy-jump="shipping">Shipping Policy &amp; Local Delivery</a></li>
+            <li><a href="#policies" data-policy-jump="refund">Refund Policy</a></li>
+            <li><a href="#policies" data-policy-jump="shipping">Shipping Policy</a></li>
             <li><a href="#policies" data-policy-jump="terms">Terms of Service</a></li>
             <li><a href="#policies" data-policy-jump="legal">Legal Notice</a></li>
             <li><a href="#policies" data-policy-jump="contactInfo">Contact Information</a></li>
-            <li><a href="#policies" data-policy-jump="optOut">Your Privacy Choices (Opt-Out)</a></li>
+            <li><a href="#policies" data-policy-jump="optOut">Your Privacy Choices</a></li>
           </ul>
         </div>
       </div>
 
-      <div style="padding-top:20px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;font-size:12.5px;color:var(--ink-muted);font-weight:600;">
-        <div>
-          © 2026 WishShipped.com (Disney Gifts Outlet · 4629, 5001 &amp; 7495 W Irlo Bronson Memorial Hwy, Kissimmee, FL 34746). Powered by Shopify &amp; Shop Pay.
+      <div style="padding-top:18px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;font-size:12px;color:var(--ink-muted);font-weight:600;">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <span>© 2026 WishShipped.com</span>
+          <span id="shopify-sync-badge" class="sync-status-pill" title="Connected to Shopify Storefront">
+            <span class="sync-dot"></span>
+            <span id="shopify-sync-text">Live Storefront</span>
+          </span>
         </div>
         <div style="display:flex;gap:8px;align-items:center;">
           <span class="utility-pill">Shop Pay</span>
@@ -725,13 +528,13 @@
       <span style="font-size:17px;">🏠</span>
       <span>Shop</span>
     </button>
-    <button type="button" class="mobile-dock-btn" data-mobile-nav="lookbook">
-      <span style="font-size:17px;">✨</span>
-      <span>Lookbook</span>
-    </button>
     <button type="button" class="mobile-dock-btn" data-mobile-nav="story">
       <span style="font-size:17px;">📖</span>
       <span>Our Story</span>
+    </button>
+    <button type="button" class="mobile-dock-btn" data-mobile-nav="contact">
+      <span style="font-size:17px;">✉️</span>
+      <span>Contact</span>
     </button>
     <button type="button" class="mobile-dock-btn" data-mobile-nav="login">
       <span style="font-size:17px;">👤</span>
@@ -743,7 +546,8 @@
     </button>
   </nav>
 
-  <!-- Catalog Data + Application Logic -->
+  <!-- Single Shopify Configuration + Catalog Data + Application Logic -->
+  <script src="shopify-config.js"></script>
   <script src="data/catalog.js"></script>
   <script src="app.js"></script>
 </body>
