@@ -636,6 +636,45 @@ a {
   gap: 16px;
 }
 
+#policy-tab-buttons {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding-bottom: 14px;
+  border-bottom: 2px dashed rgba(20, 20, 23, 0.16);
+  width: 100%;
+}
+
+.filter-pill-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 16px;
+  border: var(--border-2d);
+  border-radius: var(--radius-pill);
+  background: var(--bg-canvas);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 2px 2px 0 var(--ink);
+  transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease, color 0.12s ease;
+}
+
+.filter-pill-btn:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0 var(--ink);
+  background: var(--yellow-soft);
+}
+
+.filter-pill-btn.active {
+  background: var(--blue-bright);
+  color: #fff;
+  box-shadow: 3px 3px 0 var(--ink);
+}
+
 /* ==========================================================================
    6. Universal 2D Product Card
    ========================================================================== */
