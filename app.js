@@ -495,7 +495,41 @@
     return list;
   }
 
+  const FEATURED_HANDLES = [
+    "moana-adventure-dress",
+    "harry-potter-hog-team-short-sleeve-top",
+    "mickey-mouse-hiding-pant-bottoms",
+    "40oz-stitch-tumbler"
+  ];
+
+  function renderFeaturedItems() {
+    const featuredLanding = document.getElementById("featured-landing");
+    const featuredGrid = document.getElementById("featured-grid");
+    if (!featuredLanding || !featuredGrid) return;
+
+    const isDefaultLanding =
+      state.collection === "all" &&
+      state.character === "all" &&
+      state.productType === "all" &&
+      !state.searchQuery.trim();
+
+    if (!isDefaultLanding) {
+      featuredLanding.hidden = true;
+      return;
+    }
+
+    const featuredProducts = FEATURED_HANDLES.map((h) => PRODUCT_BY_HANDLE.get(h)).filter(Boolean);
+    if (featuredProducts.length === 0) {
+      featuredLanding.hidden = true;
+      return;
+    }
+
+    featuredLanding.hidden = false;
+    featuredGrid.innerHTML = featuredProducts.map((p) => createProductCardHtml(p)).join("");
+  }
+
   function renderCatalog() {
+    renderFeaturedItems();
     const filtered = getFilteredProducts();
     const total = filtered.length;
     const slice = filtered.slice(0, state.visibleCount);

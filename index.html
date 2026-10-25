@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="styles.css?v=20261025v3" />
 </head>
 <body>
 
@@ -97,6 +97,16 @@
     <div id="view-shop" class="page-view">
       <section class="catalog-section" id="catalog-explorer">
         <div class="container">
+          <!-- Featured Items on Landing View -->
+          <div class="featured-landing" id="featured-landing">
+            <div class="featured-landing__header">
+              <h2 class="featured-landing__title">Featured Items</h2>
+            </div>
+            <div class="featured-landing__grid" id="featured-grid">
+              <!-- Populated by app.js -->
+            </div>
+          </div>
+
           <div class="catalog-layout">
             <!-- Left Filter Sidebar -->
             <aside class="catalog-sidebar" aria-label="Catalog Filters">
@@ -547,8 +557,8 @@
   </nav>
 
   <!-- Single Shopify Configuration + Catalog Data + Application Logic -->
-  <script src="shopify-config.js"></script>
-  <script src="data/catalog.js"></script>
-  <script src="app.js"></script>
+  <script src="shopify-config.js?v=20261025v3"></script>
+  <script src="data/catalog.js?v=20261025v3"></script>
+  <script src="app.js?v=20261025v3"></script>
 </body>
 </html>

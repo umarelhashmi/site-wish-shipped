@@ -498,16 +498,6 @@ a {
   box-shadow: 3px 3px 0 var(--ink);
 }
 
-.collection-tab--lookbook {
-  background: var(--yellow);
-  color: var(--ink);
-}
-
-.collection-tab--lookbook.active {
-  background: var(--red);
-  color: #fff;
-}
-
 .collection-tab__count {
   font-family: var(--font-mono);
   font-size: 11px;
@@ -617,77 +607,37 @@ a {
 }
 
 /* ==========================================================================
-   5. AI Model Lookbook Showcase Strip (Redrawn Clothing w/ AI Models)
+   5. Featured Items Strip (Landing View)
    ========================================================================== */
-.lookbook-section {
-  padding: 16px 0 24px;
+.featured-landing {
+  margin-bottom: 24px;
+  padding-bottom: 20px;
+  border-bottom: 2px dashed rgba(20, 20, 23, 0.18);
 }
 
-.section-bar {
+.featured-landing__header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 14px;
-  flex-wrap: wrap;
+  margin-bottom: 12px;
 }
 
-.section-bar__title-group {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.section-bar__badge {
-  background: var(--red);
-  color: #fff;
-  border: var(--border-2d);
-  border-radius: var(--radius-sm);
-  padding: 3px 9px;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  font-weight: 700;
-  box-shadow: 2px 2px 0 var(--ink);
-  text-transform: uppercase;
-}
-
-.section-bar__title {
+.featured-landing__title {
   font-family: var(--font-display);
-  font-size: clamp(20px, 2.2vw, 26px);
+  font-size: clamp(20px, 2.2vw, 24px);
   font-weight: 700;
+  color: var(--ink);
+  margin: 0;
 }
 
-.section-bar__controls {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.filter-pill-btn {
-  padding: 5px 12px;
-  border: var(--border-2d);
-  border-radius: var(--radius-pill);
-  background: var(--bg-card);
-  font-size: 12px;
-  font-weight: 700;
-  cursor: pointer;
-  box-shadow: 2px 2px 0 var(--ink);
-}
-
-.filter-pill-btn.active {
-  background: var(--yellow);
-}
-
-.lookbook-grid {
+.featured-landing__grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 16px;
 }
 
 /* ==========================================================================
-   6. Universal 2D Product Card (Catalog & Lookbook)
+   6. Universal 2D Product Card
    ========================================================================== */
 .product-card {
   background: var(--bg-card);
@@ -1484,7 +1434,7 @@ a {
 }
 
 @media (max-width: 1024px) {
-  .lookbook-grid, .shelf-scroll {
+  .featured-landing__grid, .shelf-scroll {
     grid-template-columns: repeat(2, 1fr);
   }
   .catalog-layout {
@@ -1645,7 +1595,7 @@ a {
     width: 100%;
   }
 
-  .lookbook-grid,
+  .featured-landing__grid,
   .shelf-scroll,
   .catalog-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
