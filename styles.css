@@ -1896,3 +1896,743 @@ a {
     margin-bottom: 12px;
   }
 }
+
+/* ==========================================================================
+   14. Customer Account Popover & Account Portal (Orders & Profile)
+       Matches wishshipped.com <shopify-account> & Customer Account Portal
+   ========================================================================== */
+
+/* Header Account Trigger & Pink Initial Avatar */
+[hidden] {
+  display: none !important;
+}
+
+.account-signedout-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.account-trigger-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.account-trigger-btn.is-signed-in {
+  padding: 4px;
+  border-radius: 999px;
+  background: #ffffff;
+}
+
+.account-avatar-circle {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #fc2b76;
+  color: #ffffff;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-transform: uppercase;
+  letter-spacing: 0.01em;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.14);
+}
+
+.account-avatar-circle[hidden] {
+  display: none !important;
+}
+
+/* Floating Top-Right Popover Backdrop & Card */
+.account-popover-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  background: rgba(15, 23, 42, 0.08);
+  display: flex;
+  justify-content: flex-end;
+  align-items: flex-start;
+  padding: 70px 24px 24px;
+}
+
+.account-popover-backdrop[hidden] {
+  display: none !important;
+}
+
+.account-popover-card {
+  width: 360px;
+  max-width: calc(100vw - 24px);
+  background: #ffffff;
+  color: #fc2b76;
+  border-radius: 22px;
+  border: 1px solid rgba(252, 43, 118, 0.16);
+  box-shadow:
+    0 20px 40px -12px rgba(15, 23, 42, 0.22),
+    0 4px 14px rgba(15, 23, 42, 0.08);
+  padding: 20px;
+  font-family: var(--font-sans);
+  animation: accountPopoverFadeIn 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes accountPopoverFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.account-popover__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.account-popover__heading {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.3;
+  color: #fc2b76;
+}
+
+.account-popover__email {
+  margin: 2px 0 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: rgba(252, 43, 118, 0.65);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-popover__close {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 1px solid rgba(252, 43, 118, 0.18);
+  background: rgba(252, 43, 118, 0.06);
+  color: #fc2b76;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  padding: 0;
+  transition: background 0.14s ease, transform 0.14s ease;
+}
+
+.account-popover__close:hover {
+  background: rgba(252, 43, 118, 0.14);
+}
+
+.account-popover__body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.account-popover__shop-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  width: 100%;
+  height: 44px;
+  border-radius: 999px;
+  background: #5433eb;
+  color: #ffffff !important;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: filter 0.15s ease, transform 0.12s ease;
+}
+
+.account-popover__shop-btn:hover {
+  filter: brightness(1.06);
+}
+
+.account-popover__divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: rgba(252, 43, 118, 0.55);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.account-popover__divider::before,
+.account-popover__divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: rgba(252, 43, 118, 0.16);
+}
+
+.account-popover__form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+}
+
+.account-popover__input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.account-popover__email-input {
+  width: 100%;
+  height: 44px;
+  padding: 0 46px 0 16px;
+  border-radius: 999px;
+  border: 1.5px solid rgba(252, 43, 118, 0.45);
+  background: #ffffff;
+  color: #18181b;
+  font-size: 14px;
+  font-weight: 500;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.account-popover__email-input::placeholder {
+  color: rgba(252, 43, 118, 0.65);
+}
+
+.account-popover__email-input:focus {
+  border-color: #fc2b76;
+  box-shadow: 0 0 0 3px rgba(252, 43, 118, 0.12);
+}
+
+.account-popover__email-submit {
+  position: absolute;
+  right: 5px;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(252, 43, 118, 0.08);
+  color: #fc2b76;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.14s ease, color 0.14s ease;
+}
+
+.account-popover__email-submit:hover {
+  background: #fc2b76;
+  color: #ffffff;
+}
+
+.account-popover__consent {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: #fc2b76;
+  cursor: pointer;
+  user-select: none;
+  padding-left: 4px;
+}
+
+.account-popover__consent input[type="checkbox"] {
+  width: 15px;
+  height: 15px;
+  accent-color: #fc2b76;
+  cursor: pointer;
+}
+
+.account-popover__pills {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 2px;
+}
+
+.account-popover__pill {
+  height: 40px;
+  border-radius: 999px;
+  border: 1.5px solid rgba(252, 43, 118, 0.24);
+  background: #ffffff;
+  color: #fc2b76;
+  font-size: 13.5px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  cursor: pointer;
+  transition: background 0.14s ease, border-color 0.14s ease;
+}
+
+.account-popover__pill:hover {
+  background: rgba(252, 43, 118, 0.06);
+  border-color: #fc2b76;
+}
+
+/* ==========================================================================
+   Customer Account Portal View (#view-account — Orders & Profile)
+   ========================================================================== */
+.account-portal-shell {
+  background: #f5f5f7;
+  border: var(--border-2d);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-2d);
+  padding: 24px 28px 36px;
+  min-height: 540px;
+}
+
+.account-portal-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding-bottom: 18px;
+  margin-bottom: 24px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.account-portal-layout {
+  display: grid;
+  grid-template-columns: 210px 1fr;
+  gap: 32px;
+  align-items: start;
+}
+
+.account-portal-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.account-sidebar-tab {
+  width: 100%;
+  text-align: left;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: none;
+  background: transparent;
+  color: #374151;
+  font-family: var(--font-sans);
+  font-size: 14.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.14s ease, color 0.14s ease;
+}
+
+.account-sidebar-tab:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.account-sidebar-tab.active {
+  background: #e5e7eb;
+  color: #111827;
+  font-weight: 700;
+}
+
+.account-portal-main {
+  min-width: 0;
+  max-width: 720px;
+}
+
+.account-section-block {
+  margin-bottom: 24px;
+}
+
+.account-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.account-section-header h3 {
+  margin: 0;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #4b5563;
+}
+
+.account-card {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 16px 18px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+}
+
+.account-kv-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 14px;
+}
+
+.account-kv-label {
+  color: #4b5563;
+  font-weight: 500;
+}
+
+.account-kv-value {
+  color: #111827;
+  font-weight: 600;
+  text-align: right;
+  word-break: break-word;
+}
+
+.account-action-pill {
+  padding: 5px 14px;
+  border-radius: 999px;
+  border: 1px solid #d1d5db;
+  background: #ffffff;
+  color: #005bd3;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.14s ease, border-color 0.14s ease;
+}
+
+.account-action-pill:hover {
+  background: #f9fafb;
+  border-color: #9ca3af;
+}
+
+/* Orders Empty / Welcome Card (Matches wishshipped.com Orders page) */
+.account-orders-empty-card {
+  max-width: 390px;
+  padding: 20px;
+}
+
+.account-orders-empty-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.account-shop-now-btn {
+  padding: 9px 18px;
+  border-radius: 999px;
+  border: none;
+  background: #005bd3;
+  color: #ffffff;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: filter 0.14s ease;
+}
+
+.account-shop-now-btn:hover {
+  filter: brightness(1.08);
+}
+
+.account-orders-empty-preview {
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid #e5e7eb;
+  background: #f9fafb;
+  cursor: pointer;
+  aspect-ratio: 1 / 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.account-orders-empty-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.22s ease;
+}
+
+.account-orders-empty-preview:hover img {
+  transform: scale(1.03);
+}
+
+/* Address List Items */
+.account-address-empty {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #6b7280;
+  font-size: 13.5px;
+  font-weight: 500;
+}
+
+.account-address-item {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 12px 0;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.account-address-item:first-child {
+  padding-top: 0;
+}
+
+.account-address-item:last-child {
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.account-address-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: #005bd3;
+  font-size: 11px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+/* Marketing Toggle Switch */
+.account-switch {
+  width: 42px;
+  height: 24px;
+  border-radius: 999px;
+  border: none;
+  background: #d1d5db;
+  padding: 2px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  transition: background 0.16s ease;
+}
+
+.account-switch.active {
+  background: #005bd3;
+}
+
+.account-switch__thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transform: translateX(0);
+  transition: transform 0.16s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.account-switch.active .account-switch__thumb {
+  transform: translateX(18px);
+}
+
+.account-switch:not(.active) .account-switch__thumb svg {
+  opacity: 0;
+}
+
+/* Sign out row */
+.account-signout-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 28px;
+  padding-top: 8px;
+}
+
+.account-signout-btn {
+  padding: 8px 18px;
+  font-size: 13.5px;
+}
+
+.account-signout-all-link {
+  border: none;
+  background: transparent;
+  color: #005bd3;
+  font-size: 13.5px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 4px;
+}
+
+.account-signout-all-link:hover {
+  text-decoration: underline;
+}
+
+/* Edit Profile & Add Address Dialog Modals */
+.account-dialog-modal {
+  width: 100%;
+  max-width: 520px;
+  background: #ffffff;
+  border-radius: 16px;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.18);
+  padding: 22px 24px;
+  font-family: var(--font-sans);
+}
+
+.account-dialog-modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+
+.account-dialog-modal__header h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: #111827;
+}
+
+.account-dialog-modal__close {
+  border: none;
+  background: transparent;
+  color: #6b7280;
+  font-size: 18px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+}
+
+.account-dialog-modal__close:hover {
+  background: #f3f4f6;
+  color: #111827;
+}
+
+.account-dialog-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.account-dialog-grid-3 {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 12px;
+}
+
+.account-dialog-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.account-dialog-field label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #4b5563;
+}
+
+.account-dialog-field input,
+.account-dialog-field select {
+  height: 42px;
+  padding: 0 12px;
+  border-radius: 8px;
+  border: 1px solid #d1d5db;
+  background: #ffffff;
+  color: #111827;
+  font-size: 14px;
+  font-family: var(--font-sans);
+  outline: none;
+}
+
+.account-dialog-field input[readonly] {
+  background: #f9fafb;
+  color: #6b7280;
+}
+
+.account-dialog-field input:focus,
+.account-dialog-field select:focus {
+  border-color: #005bd3;
+  box-shadow: 0 0 0 2px rgba(0, 91, 211, 0.15);
+}
+
+.account-dialog-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: #111827;
+  cursor: pointer;
+}
+
+.account-dialog-checkbox input {
+  width: 16px;
+  height: 16px;
+  accent-color: #005bd3;
+}
+
+.account-dialog-modal__footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 22px;
+}
+
+.account-dialog-cancel {
+  border: none;
+  background: transparent;
+  color: #005bd3;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 8px 12px;
+}
+
+.account-dialog-save {
+  border: none;
+  border-radius: 8px;
+  background: #005bd3;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 9px 18px;
+  cursor: pointer;
+  transition: filter 0.14s ease;
+}
+
+.account-dialog-save:hover {
+  filter: brightness(1.08);
+}
+
+@media (max-width: 768px) {
+  .account-popover-backdrop {
+    padding: 62px 12px 12px;
+  }
+
+  .account-portal-shell {
+    padding: 16px;
+  }
+
+  .account-portal-layout {
+    grid-template-columns: 1fr;
+    gap: 18px;
+  }
+
+  .account-portal-sidebar {
+    flex-direction: row;
+  }
+
+  .account-dialog-grid-2,
+  .account-dialog-grid-3 {
+    grid-template-columns: 1fr;
+  }
+}

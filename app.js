@@ -61,9 +61,76 @@
     openPdpHandle: null,
     // Shopping cart persisted in localStorage
     cart: loadCart(),
+    // Customer Account persisted in localStorage + synced with /api/auth/profile
+    customer: loadCustomerAccount(),
+    activeAccountTab: "orders",
     activePolicyKey: "shipping",
     isSyncing: false
   };
+
+  function loadCustomerAccount() {
+    try {
+      const raw = localStorage.getItem("wishshipped_customer_account_v1");
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed.email === "string" && parsed.email.includes("@")) {
+          return {
+            email: parsed.email.trim().toLowerCase(),
+            firstName: String(parsed.firstName || ""),
+            lastName: String(parsed.lastName || ""),
+            marketingConsent: parsed.marketingConsent !== false,
+            addresses: Array.isArray(parsed.addresses) ? parsed.addresses : [],
+            orders: Array.isArray(parsed.orders) ? parsed.orders : []
+          };
+        }
+      }
+    } catch (e) {}
+    return null;
+  }
+
+  function saveCustomerAccount(syncRemote = true) {
+    try {
+      if (state.customer && state.customer.email) {
+        localStorage.setItem("wishshipped_customer_account_v1", JSON.stringify(state.customer));
+      } else {
+        localStorage.removeItem("wishshipped_customer_account_v1");
+      }
+    } catch (e) {}
+
+    renderAccountUI();
+
+    if (syncRemote && state.customer && state.customer.email) {
+      fetch("/api/auth/profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(state.customer)
+      }).catch(() => {});
+    }
+  }
+
+  async function fetchCustomerProfileFromServer(email) {
+    if (!email) return;
+    try {
+      const res = await fetch(`/api/auth/profile?email=${encodeURIComponent(email)}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data && data.ok && data.profile && state.customer && state.customer.email === email.toLowerCase()) {
+        const p = data.profile;
+        state.customer.firstName = p.firstName || state.customer.firstName || "";
+        state.customer.lastName = p.lastName || state.customer.lastName || "";
+        if (typeof p.marketingConsent === "boolean") {
+          state.customer.marketingConsent = p.marketingConsent;
+        }
+        if (Array.isArray(p.addresses) && p.addresses.length > 0) {
+          state.customer.addresses = p.addresses;
+        }
+        if (Array.isArray(p.orders) && p.orders.length > 0) {
+          state.customer.orders = p.orders;
+        }
+        saveCustomerAccount(false);
+      }
+    } catch (e) {}
+  }
 
   function loadCart() {
     try {
@@ -107,13 +174,21 @@
       about: document.getElementById("view-about"),
       reviews: document.getElementById("view-reviews"),
       contact: document.getElementById("view-contact"),
-      policies: document.getElementById("view-policies")
+      policies: document.getElementById("view-policies"),
+      account: document.getElementById("view-account")
     };
 
     Object.entries(views).forEach(([k, el]) => {
       if (!el) return;
       el.hidden = k !== viewName;
     });
+
+    if (viewName === "account") {
+      if (options.accountTab) {
+        state.activeAccountTab = options.accountTab;
+      }
+      renderAccountUI();
+    }
 
     document.querySelectorAll("[data-nav-view]").forEach((btn) => {
       btn.classList.toggle("active", btn.getAttribute("data-nav-view") === viewName);
@@ -1421,7 +1496,7 @@
         return;
       }
 
-      // 11. Close Modals
+      // 11. Close Modals & Account Popover / Portal Actions
       if (target.id === "close-pdp-btn" || target.id === "pdp-modal") {
         document.getElementById("pdp-modal").hidden = true;
         state.openPdpHandle = null;
@@ -1429,11 +1504,107 @@
       }
       if (target.closest("#open-login-btn") || target.id === "footer-login-trigger") {
         e.preventDefault();
+        renderAccountUI();
         document.getElementById("login-modal").hidden = false;
         return;
       }
-      if (target.id === "close-login-btn" || target.id === "login-modal") {
+      if (
+        target.id === "close-login-btn" ||
+        target.closest("#close-login-btn") ||
+        target.closest("[data-close-login-popover]") ||
+        target.id === "login-modal"
+      ) {
         document.getElementById("login-modal").hidden = true;
+        return;
+      }
+
+      // Open Orders or Profile from top-right Account Popover
+      const openAccTabBtn = target.closest("[data-open-account-tab]");
+      if (openAccTabBtn) {
+        const destTab = openAccTabBtn.getAttribute("data-open-account-tab") || "orders";
+        if (state.customer && state.customer.email) {
+          document.getElementById("login-modal").hidden = true;
+          switchView("account", { accountTab: destTab });
+        } else {
+          // Signed out: set return_view so after 6-digit login it opens Orders/Profile, and focus email input
+          const retInput = document.getElementById("login-return-view-input");
+          if (retInput) retInput.value = destTab;
+          try {
+            localStorage.setItem("wishshipped_pending_return_view", destTab);
+          } catch (err) {}
+          const emailInput = document.getElementById("customer-login-email");
+          if (emailInput) {
+            emailInput.focus();
+            emailInput.placeholder = `Enter email to view ${destTab === "profile" ? "Profile" : "Orders"}`;
+          }
+        }
+        return;
+      }
+
+      // Switch between Orders and Profile inside #view-account
+      const accSidebarTab = target.closest("[data-account-tab]");
+      if (accSidebarTab) {
+        state.activeAccountTab = accSidebarTab.getAttribute("data-account-tab") || "orders";
+        renderAccountUI();
+        return;
+      }
+
+      // Edit Profile Modal
+      if (target.id === "open-edit-profile-btn") {
+        openEditProfileModal();
+        return;
+      }
+      if (
+        target.id === "close-edit-profile-modal" ||
+        target.id === "cancel-edit-profile-btn" ||
+        target.id === "edit-profile-modal"
+      ) {
+        document.getElementById("edit-profile-modal").hidden = true;
+        return;
+      }
+
+      // Add / Edit Address Modal
+      if (target.id === "open-add-address-btn") {
+        openAddAddressModal(-1);
+        return;
+      }
+      const editAddrBtn = target.closest("[data-edit-address-idx]");
+      if (editAddrBtn) {
+        const idx = parseInt(editAddrBtn.getAttribute("data-edit-address-idx"), 10);
+        openAddAddressModal(idx);
+        return;
+      }
+      const delAddrBtn = target.closest("[data-delete-address-idx]");
+      if (delAddrBtn && state.customer) {
+        const idx = parseInt(delAddrBtn.getAttribute("data-delete-address-idx"), 10);
+        if (Array.isArray(state.customer.addresses) && state.customer.addresses[idx]) {
+          state.customer.addresses.splice(idx, 1);
+          saveCustomerAccount(true);
+        }
+        return;
+      }
+      if (
+        target.id === "close-add-address-modal" ||
+        target.id === "cancel-add-address-btn" ||
+        target.id === "add-address-modal"
+      ) {
+        document.getElementById("add-address-modal").hidden = true;
+        return;
+      }
+
+      // Marketing Toggle inside Profile
+      if (target.closest("#profile-marketing-toggle") && state.customer) {
+        state.customer.marketingConsent = !state.customer.marketingConsent;
+        saveCustomerAccount(true);
+        return;
+      }
+
+      // Sign out / Sign out of all devices
+      if (target.id === "account-signout-btn" || target.id === "account-signout-all-btn") {
+        state.customer = null;
+        saveCustomerAccount(false);
+        document.getElementById("login-modal").hidden = true;
+        switchView("shop");
         return;
       }
 
@@ -1500,15 +1671,88 @@
       });
     }
 
-    // Customer Login: Redirect with login_hint so Shopify pre-fills the email in the user's own browser session
+    // Customer Login: Instant redirect to /api/auth/redirect which serves the official Shopify 6-digit code screen
+    // and dispatches the real 6-digit verification code from store+102987006274@g.shopifyemail.com
     const loginForm = document.getElementById("customer-login-form");
     if (loginForm) {
       loginForm.addEventListener("submit", (e) => {
         e.preventDefault();
         const emailInput = document.getElementById("customer-login-email");
-        const email = emailInput ? emailInput.value.trim() : "";
+        const email = emailInput ? emailInput.value.trim().toLowerCase() : "";
         if (!email) return;
-        window.location.href = `https://${CFG.domain}/customer_authentication/login?return_to=%2F&login_hint=${encodeURIComponent(email)}`;
+
+        const mktCheckbox = document.getElementById("login-marketing-checkbox");
+        const marketingConsent = mktCheckbox ? mktCheckbox.checked : true;
+        const retInput = document.getElementById("login-return-view-input");
+        const returnView = retInput ? retInput.value : "";
+
+        try {
+          localStorage.setItem("wishshipped_pending_marketing", marketingConsent ? "true" : "false");
+          if (returnView) {
+            localStorage.setItem("wishshipped_pending_return_view", returnView);
+          }
+        } catch (err) {}
+
+        window.location.href = `/api/auth/redirect?email=${encodeURIComponent(email)}&marketing_consent=${marketingConsent ? "true" : "false"}&return_view=${encodeURIComponent(returnView)}`;
+      });
+    }
+
+    // Edit Profile Form Submit
+    const editProfileForm = document.getElementById("edit-profile-form");
+    if (editProfileForm) {
+      editProfileForm.addEventListener("submit", (e) => {
+        e.preventDefault();
+        if (!state.customer) return;
+        const fn = document.getElementById("edit-profile-firstname");
+        const ln = document.getElementById("edit-profile-lastname");
+        state.customer.firstName = fn ? fn.value.trim() : "";
+        state.customer.lastName = ln ? ln.value.trim() : "";
+        saveCustomerAccount(true);
+        document.getElementById("edit-profile-modal").hidden = true;
+      });
+    }
+
+    // Add / Edit Address Form Submit
+    const addAddressForm = document.getElementById("add-address-form");
+    if (addAddressForm) {
+      addAddressForm.addEventListener("submit", (e) => {
+        e.preventDefault();
+        if (!state.customer) return;
+        if (!Array.isArray(state.customer.addresses)) {
+          state.customer.addresses = [];
+        }
+
+        const idxInput = document.getElementById("address-edit-index");
+        const editIdx = idxInput ? parseInt(idxInput.value, 10) : -1;
+        const isDefault = Boolean(document.getElementById("address-default") && document.getElementById("address-default").checked);
+
+        const addrObj = {
+          country: (document.getElementById("address-country") && document.getElementById("address-country").value) || "United States",
+          firstName: (document.getElementById("address-firstname") && document.getElementById("address-firstname").value.trim()) || "",
+          lastName: (document.getElementById("address-lastname") && document.getElementById("address-lastname").value.trim()) || "",
+          address1: (document.getElementById("address-line1") && document.getElementById("address-line1").value.trim()) || "",
+          address2: (document.getElementById("address-line2") && document.getElementById("address-line2").value.trim()) || "",
+          city: (document.getElementById("address-city") && document.getElementById("address-city").value.trim()) || "",
+          state: (document.getElementById("address-state") && document.getElementById("address-state").value) || "Florida",
+          zip: (document.getElementById("address-zip") && document.getElementById("address-zip").value.trim()) || "",
+          phone: (document.getElementById("address-phone") && document.getElementById("address-phone").value.trim()) || "",
+          isDefault: isDefault || state.customer.addresses.length === 0
+        };
+
+        if (addrObj.isDefault) {
+          state.customer.addresses.forEach((a) => {
+            a.isDefault = false;
+          });
+        }
+
+        if (editIdx >= 0 && state.customer.addresses[editIdx]) {
+          state.customer.addresses[editIdx] = addrObj;
+        } else {
+          state.customer.addresses.push(addrObj);
+        }
+
+        saveCustomerAccount(true);
+        document.getElementById("add-address-modal").hidden = true;
       });
     }
 
@@ -1571,6 +1815,225 @@
   }
 
   // ========================================================================
+  // 10b. Customer Account Popover & Portal Renderer (Matches wishshipped.com)
+  // ========================================================================
+  function renderAccountUI() {
+    const isSignedIn = Boolean(state.customer && state.customer.email);
+    const headerBtn = document.getElementById("open-login-btn");
+    const signedOutIcon = document.getElementById("header-account-signedout-icon");
+    const avatarBadge = document.getElementById("header-account-avatar");
+    const footerTrigger = document.getElementById("footer-login-trigger");
+
+    // 1. Header Button & Pink Initial Avatar Badge
+    if (headerBtn) {
+      headerBtn.classList.toggle("is-signed-in", isSignedIn);
+    }
+    if (signedOutIcon) {
+      signedOutIcon.hidden = isSignedIn;
+    }
+    if (avatarBadge) {
+      avatarBadge.hidden = !isSignedIn;
+      if (isSignedIn) {
+        const sourceStr = (state.customer.firstName || state.customer.email || "U").trim();
+        avatarBadge.textContent = sourceStr.charAt(0).toUpperCase();
+      }
+    }
+    if (footerTrigger) {
+      footerTrigger.textContent = isSignedIn ? "Account" : "Log in";
+    }
+    const mobileLoginBtn = document.querySelector('[data-mobile-nav="login"] span:last-child');
+    if (mobileLoginBtn) {
+      mobileLoginBtn.textContent = isSignedIn ? "Account" : "Log In";
+    }
+
+    // 2. Top-Right Floating Account Popover (#login-modal)
+    const popSignedOut = document.getElementById("account-popover-signed-out");
+    const popSignedIn = document.getElementById("account-popover-signed-in");
+    if (popSignedOut) popSignedOut.hidden = isSignedIn;
+    if (popSignedIn) popSignedIn.hidden = !isSignedIn;
+
+    if (isSignedIn) {
+      const greetingEl = document.getElementById("account-popover-greeting");
+      const emailEl = document.getElementById("account-popover-email");
+      if (greetingEl) {
+        greetingEl.textContent = state.customer.firstName
+          ? `Hi, ${state.customer.firstName}`
+          : "Account";
+      }
+      if (emailEl) {
+        emailEl.textContent = state.customer.email;
+      }
+    }
+
+    // 3. Full Customer Account Portal (#view-account — Orders & Profile)
+    const portalEmailPill = document.getElementById("account-portal-email-pill");
+    if (portalEmailPill) {
+      portalEmailPill.textContent = isSignedIn ? state.customer.email : "";
+      portalEmailPill.hidden = !isSignedIn;
+    }
+
+    document.querySelectorAll("[data-account-tab]").forEach((btn) => {
+      btn.classList.toggle("active", btn.getAttribute("data-account-tab") === state.activeAccountTab);
+    });
+
+    const ordersPane = document.getElementById("account-panel-orders");
+    const profilePane = document.getElementById("account-panel-profile");
+    if (ordersPane) ordersPane.hidden = state.activeAccountTab !== "orders";
+    if (profilePane) profilePane.hidden = state.activeAccountTab !== "profile";
+
+    if (!isSignedIn) return;
+
+    // 4. Profile Tab: Contact Card
+    const fullName = [state.customer.firstName, state.customer.lastName].filter(Boolean).join(" ").trim();
+    const nameRow = document.getElementById("account-profile-name-row");
+    const nameVal = document.getElementById("account-profile-name-val");
+    const emailVal = document.getElementById("account-profile-email-val");
+
+    if (nameRow) nameRow.hidden = !fullName;
+    if (nameVal) nameVal.textContent = fullName;
+    if (emailVal) emailVal.textContent = state.customer.email;
+
+    // 5. Profile Tab: Addresses Card
+    const addrContainer = document.getElementById("account-addresses-container");
+    if (addrContainer) {
+      const addresses = Array.isArray(state.customer.addresses) ? state.customer.addresses : [];
+      if (addresses.length === 0) {
+        addrContainer.innerHTML = `
+          <div class="account-address-empty">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+              <circle cx="8" cy="8" r="6.25"></circle>
+              <path d="M8 7.2v3.8M8 5.2h.01" stroke-linecap="round"></path>
+            </svg>
+            <span>No addresses added</span>
+          </div>
+        `;
+      } else {
+        addrContainer.innerHTML = addresses
+          .map((addr, idx) => {
+            const addrName = [addr.firstName, addr.lastName].filter(Boolean).join(" ");
+            const line2 = addr.address2 ? `, ${escapeHtml(addr.address2)}` : "";
+            return `
+              <div class="account-address-item">
+                <div>
+                  ${addr.isDefault ? `<span class="account-address-badge">Default address</span>` : ""}
+                  <div style="font-weight:700;font-size:14px;color:#111827;">${escapeHtml(addrName)}</div>
+                  <div style="font-size:13.5px;color:#4b5563;margin-top:2px;">
+                    ${escapeHtml(addr.address1 || "")}${line2}
+                  </div>
+                  <div style="font-size:13.5px;color:#4b5563;">
+                    ${escapeHtml(addr.city || "")}, ${escapeHtml(addr.state || "")} ${escapeHtml(addr.zip || "")} · ${escapeHtml(addr.country || "United States")}
+                  </div>
+                  ${addr.phone ? `<div style="font-size:12.5px;color:#6b7280;margin-top:2px;">${escapeHtml(addr.phone)}</div>` : ""}
+                </div>
+                <div style="display:flex;gap:6px;flex-shrink:0;">
+                  <button type="button" class="account-action-pill" data-edit-address-idx="${idx}">Edit</button>
+                  <button type="button" class="account-action-pill" style="color:#dc2626;" data-delete-address-idx="${idx}">Delete</button>
+                </div>
+              </div>
+            `;
+          })
+          .join("");
+      }
+    }
+
+    // 6. Profile Tab: Marketing Toggle
+    const mktToggle = document.getElementById("profile-marketing-toggle");
+    if (mktToggle) {
+      const mktActive = state.customer.marketingConsent !== false;
+      mktToggle.classList.toggle("active", mktActive);
+      mktToggle.setAttribute("aria-checked", mktActive ? "true" : "false");
+    }
+  }
+
+  function openEditProfileModal() {
+    if (!state.customer) return;
+    const fn = document.getElementById("edit-profile-firstname");
+    const ln = document.getElementById("edit-profile-lastname");
+    const em = document.getElementById("edit-profile-email");
+    if (fn) fn.value = state.customer.firstName || "";
+    if (ln) ln.value = state.customer.lastName || "";
+    if (em) em.value = state.customer.email || "";
+    document.getElementById("edit-profile-modal").hidden = false;
+  }
+
+  function openAddAddressModal(editIdx = -1) {
+    if (!state.customer) return;
+    const titleEl = document.getElementById("add-address-modal-title");
+    const idxInput = document.getElementById("address-edit-index");
+    if (idxInput) idxInput.value = String(editIdx);
+
+    const addresses = Array.isArray(state.customer.addresses) ? state.customer.addresses : [];
+    const existing = editIdx >= 0 ? addresses[editIdx] : null;
+    if (titleEl) titleEl.textContent = existing ? "Edit address" : "Add address";
+
+    document.getElementById("address-country").value = (existing && existing.country) || "United States";
+    document.getElementById("address-firstname").value = (existing && existing.firstName) || state.customer.firstName || "";
+    document.getElementById("address-lastname").value = (existing && existing.lastName) || state.customer.lastName || "";
+    document.getElementById("address-line1").value = (existing && existing.address1) || "";
+    document.getElementById("address-line2").value = (existing && existing.address2) || "";
+    document.getElementById("address-city").value = (existing && existing.city) || "";
+    document.getElementById("address-state").value = (existing && existing.state) || "Florida";
+    document.getElementById("address-zip").value = (existing && existing.zip) || "";
+    document.getElementById("address-phone").value = (existing && existing.phone) || "+1 ";
+    document.getElementById("address-default").checked = existing ? Boolean(existing.isDefault) : addresses.length === 0;
+
+    document.getElementById("add-address-modal").hidden = false;
+  }
+
+  function checkAuthReturnParams() {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const loginEmail = (params.get("auth_login_email") || "").trim().toLowerCase();
+      if (!loginEmail || !loginEmail.includes("@")) {
+        if (state.customer && state.customer.email) {
+          fetchCustomerProfileFromServer(state.customer.email);
+        }
+        return;
+      }
+
+      let pendingReturnView = params.get("auth_return_view") || "";
+      let pendingMkt = true;
+      try {
+        if (!pendingReturnView) {
+          pendingReturnView = localStorage.getItem("wishshipped_pending_return_view") || "";
+        }
+        const rawMkt = localStorage.getItem("wishshipped_pending_marketing");
+        if (rawMkt === "false") pendingMkt = false;
+        localStorage.removeItem("wishshipped_pending_return_view");
+        localStorage.removeItem("wishshipped_pending_marketing");
+      } catch (e) {}
+
+      if (!state.customer || state.customer.email !== loginEmail) {
+        state.customer = {
+          email: loginEmail,
+          firstName: "",
+          lastName: "",
+          marketingConsent: pendingMkt,
+          addresses: [],
+          orders: []
+        };
+      } else {
+        state.customer.marketingConsent = pendingMkt;
+      }
+
+      saveCustomerAccount(true);
+      fetchCustomerProfileFromServer(loginEmail);
+
+      // Clean URL query parameters
+      const cleanUrl = window.location.pathname + (window.location.hash || "");
+      window.history.replaceState({}, document.title, cleanUrl);
+
+      if (pendingReturnView === "orders" || pendingReturnView === "profile") {
+        switchView("account", { accountTab: pendingReturnView });
+      } else {
+        // Show the top-right signed-in Account popover immediately upon login
+        const modal = document.getElementById("login-modal");
+        if (modal) modal.hidden = false;
+      }
+    } catch (e) {}
+  }
+
+  // ========================================================================
   // 11. Initialize Storefront + Start Live Shopify Sync
   // ========================================================================
   function init() {
@@ -1579,7 +2042,9 @@
     renderReviewsWall();
     renderPolicyContent("shipping");
     updateCartBadgesAndDrawer();
+    renderAccountUI();
     bindEvents();
+    checkAuthReturnParams();
 
     if (CFG.autoSyncOnLoad !== false) {
       syncWithShopifyStorefront();
