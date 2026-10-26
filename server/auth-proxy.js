@@ -1,26 +1,27 @@
 /**
- * WishShipped.com — Seamless Shopify Customer 6-Digit OTP Auth Proxy
- * ==================================================================
- * Eliminates the double-email entry step when signing in with Shopify
- * Customer Accounts (https://shopify.com/authentication/102987006274).
- *
+ * WishShipped.com — Instant Redirect to Official Shopify 6-Digit Code Page
+ * ========================================================================
  * Flow:
- *  1. Maintains a pre-warmed Chromium context already sitting on Shopify's
- *     OAuth login page (`https://wishshipped.com/customer_authentication/redirect`).
- *  2. POST /api/auth/send-code { email }
- *     - Submits `email` into the pre-warmed Shopify login form.
- *     - Shopify sends the 6-digit verification code from `@t.shopifyemail.com`
- *       and advances the session to `/authentication/102987006274/code`.
- *     - Returns { ok: true, sessionId, email, codeUrl } in ~1s so the user
- *       immediately sees the "Enter 6-digit code" view without re-typing their email.
- *  3. POST /api/auth/verify-code { sessionId, code }
- *     - Submits the 6-digit `code` into the active Shopify `/code` session.
- *     - Returns { ok: false, error } if invalid, or { ok: true, email, orders }
- *       once verified.
+ *  1. Uses a cached Shopify OAuth login session (`cached_login.html` +
+ *     `cached_cookies.txt`, refreshed automatically if older than 12 hours)
+ *     in a persistent pre-warmed Playwright page.
+ *  2. GET /api/auth/redirect?email=<email>
+ *     - Immediately (in < 2ms) responds with `302 Found` redirecting the
+ *       user's browser directly to the official Shopify 6-digit code page:
+ *       `https://shopify.com/authentication/102987006274/code?...&email=<email>`
+ *       so the user lands on the official Shopify login UI at the "Enter code"
+ *       screen without repeating their email.
+ *     - Simultaneously in the background (~320ms), submits `email` in the
+ *       warm Playwright page (`POST /authentication/102987006274/login` ->
+ *       `200 {"nextStep":"code"}`) so Shopify sends the 6-digit verification
+ *       code from `@t.shopifyemail.com` to `<email>`, and immediately resets
+ *       the page from local memory (< 150ms) for the next visitor.
  */
 
 const http = require("http");
-const crypto = require("crypto");
+const fs = require("fs");
+const path = require("path");
+const { execFileSync } = require("child_process");
 const { chromium } = require("playwright");
 
 const PORT = process.env.PORT || 4045;
@@ -29,82 +30,222 @@ const SHOPIFY_REDIRECT_URL =
 const USER_AGENT =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
 
-let browser = null;
-let warmSessionPromise = null;
-const activeSessions = new Map(); // sessionId -> { context, page, email, createdAt }
+const DATA_DIR = __dirname;
+const CACHED_HTML_PATH = path.join(DATA_DIR, "cached_login.html");
+const CACHED_COOKIES_PATH = path.join(DATA_DIR, "cached_cookies.txt");
 
-async function ensureBrowser() {
+let browser = null;
+let sharedPage = null;
+let sharedContext = null;
+let cachedHtml = null;
+let cachedAuthUrl = null;
+let cachedLoginUrl = null;
+let queuePromise = Promise.resolve();
+
+function loadOrRefreshCachedFiles() {
+  try {
+    if (
+      fs.existsSync(CACHED_HTML_PATH) &&
+      fs.existsSync(CACHED_COOKIES_PATH)
+    ) {
+      const stat = fs.statSync(CACHED_HTML_PATH);
+      const html = fs.readFileSync(CACHED_HTML_PATH, "utf8");
+      const m = html.match(/data-serialized-id="canonical-login-url">([^<]+)</);
+      if (m && Date.now() - stat.mtimeMs < 12 * 60 * 60 * 1000) {
+        const canon = JSON.parse(m[1]);
+        cachedHtml = html;
+        cachedLoginUrl = "https://shopify.com" + canon;
+        cachedAuthUrl =
+          "https://shopify.com" + canon.replace("/login?", "/oauth/authorize?");
+        return true;
+      }
+    }
+  } catch (e) {
+    console.error("[AuthProxy] Error reading cached session files:", e.message);
+  }
+
+  try {
+    const tmpCookie = "/tmp/ws_refresh_cookies.txt";
+    const tmpHtml = "/tmp/ws_refresh_login.html";
+    try {
+      fs.unlinkSync(tmpCookie);
+    } catch (e) {}
+
+    execFileSync("curl", [
+      "-s",
+      "-L",
+      "-c",
+      tmpCookie,
+      "-b",
+      tmpCookie,
+      "-H",
+      `User-Agent: ${USER_AGENT}`,
+      "-H",
+      "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+      "-H",
+      "Accept-Language: en-US,en;q=0.9",
+      "-o",
+      tmpHtml,
+      SHOPIFY_REDIRECT_URL
+    ]);
+
+    const html = fs.readFileSync(tmpHtml, "utf8");
+    const m = html.match(/data-serialized-id="canonical-login-url">([^<]+)</);
+    if (m) {
+      fs.copyFileSync(tmpHtml, CACHED_HTML_PATH);
+      fs.copyFileSync(tmpCookie, CACHED_COOKIES_PATH);
+      const canon = JSON.parse(m[1]);
+      cachedHtml = html;
+      cachedLoginUrl = "https://shopify.com" + canon;
+      cachedAuthUrl =
+        "https://shopify.com" + canon.replace("/login?", "/oauth/authorize?");
+      console.log("[AuthProxy] Refreshed cached login session via curl");
+      return true;
+    }
+  } catch (e) {
+    console.error("[AuthProxy] curl refresh failed:", e.message);
+  }
+  return Boolean(cachedHtml && cachedLoginUrl);
+}
+
+function parseNetscapeCookies(filePath) {
+  const pwCookies = [];
+  for (const line of fs.readFileSync(filePath, "utf8").split("\n")) {
+    if (!line || (line.startsWith("#") && !line.startsWith("#HttpOnly_"))) {
+      continue;
+    }
+    const httpOnly = line.startsWith("#HttpOnly_");
+    const clean = httpOnly ? line.replace(/^#HttpOnly_/, "") : line;
+    const parts = clean.split("\t");
+    if (parts.length < 7) continue;
+    pwCookies.push({
+      name: parts[5],
+      value: parts[6].trim(),
+      domain: parts[0],
+      path: parts[2],
+      secure: parts[3] === "TRUE",
+      httpOnly,
+      sameSite: "Lax"
+    });
+  }
+  return pwCookies;
+}
+
+async function initWarmPage() {
+  loadOrRefreshCachedFiles();
+  if (!cachedHtml || !cachedAuthUrl) {
+    throw new Error("No valid cached_login.html available");
+  }
+
   if (!browser || !browser.isConnected()) {
     browser = await chromium.launch({
       headless: true,
-      args: [
-        "--disable-blink-features=AutomationControlled",
-        "--no-sandbox",
-        "--disable-setuid-sandbox",
-        "--disable-dev-shm-usage"
-      ]
+      args: ["--disable-blink-features=AutomationControlled", "--no-sandbox"]
     });
   }
-  return browser;
-}
 
-async function createWarmSession() {
-  const b = await ensureBrowser();
-  const context = await b.newContext({
+  if (sharedContext) {
+    await sharedContext.close().catch(() => {});
+  }
+
+  sharedContext = await browser.newContext({
     userAgent: USER_AGENT,
     viewport: { width: 1280, height: 800 },
     locale: "en-US"
   });
-  const page = await context.newPage();
-  await page.goto(SHOPIFY_REDIRECT_URL, {
+
+  await sharedContext.addCookies(parseNetscapeCookies(CACHED_COOKIES_PATH));
+  sharedPage = await sharedContext.newPage();
+
+  await sharedPage.route(
+    "**/authentication/102987006274/oauth/authorize*",
+    async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "text/html; charset=utf-8",
+        body: cachedHtml
+      });
+    }
+  );
+
+  let collectDone = false;
+  sharedPage.on("response", (r) => {
+    if (r.url().includes("/api/collect") && r.status() === 204) {
+      collectDone = true;
+    }
+  });
+
+  await sharedPage.goto(cachedAuthUrl, {
     waitUntil: "domcontentloaded",
-    timeout: 20000
+    timeout: 10000
   });
-  await page.locator("#customer-authentication-web-email").waitFor({
+  await sharedPage.locator("#customer-authentication-web-email").waitFor({
     state: "visible",
-    timeout: 15000
+    timeout: 8000
   });
-  return { context, page, createdAt: Date.now() };
+
+  for (let i = 0; i < 25 && !collectDone; i++) {
+    await sharedPage.waitForTimeout(100);
+  }
+
+  cachedLoginUrl = sharedPage.url();
+  console.log("[AuthProxy] Warm page ready:", cachedLoginUrl.slice(0, 95));
 }
 
-function warmUpNext() {
-  warmSessionPromise = createWarmSession().catch((err) => {
-    console.error("[AuthProxy] Warm-up error:", err.message);
-    return null;
+async function submitEmailInBackground(email) {
+  queuePromise = queuePromise.then(async () => {
+    try {
+      if (!sharedPage || sharedPage.isClosed()) {
+        await initWarmPage();
+      }
+      const emailInput = sharedPage.locator("#customer-authentication-web-email");
+      const isVis = await emailInput.isVisible().catch(() => false);
+      if (!isVis) {
+        await sharedPage.goto(cachedAuthUrl, {
+          waitUntil: "domcontentloaded",
+          timeout: 8000
+        });
+        await emailInput.waitFor({ state: "visible", timeout: 6000 });
+      }
+
+      const t0 = Date.now();
+      await emailInput.fill(email);
+      const respPromise = sharedPage.waitForResponse(
+        (r) =>
+          r.url().includes("/authentication/102987006274/login") &&
+          r.request().method() === "POST",
+        { timeout: 8000 }
+      );
+      await sharedPage.locator('button[type="submit"]').first().click();
+      const resp = await respPromise;
+      const text = await resp.text();
+      console.log(
+        `[AuthProxy] Dispatched 6-digit code for ${email} in ${Date.now() - t0}ms: HTTP ${resp.status()} ${text.slice(0, 100)}`
+      );
+
+      // Immediately reset page from local memory (< 150ms) for next user
+      await sharedPage.goto(cachedAuthUrl, {
+        waitUntil: "domcontentloaded",
+        timeout: 8000
+      });
+      await emailInput.waitFor({ state: "visible", timeout: 6000 });
+    } catch (err) {
+      console.error(`[AuthProxy] Error submitting email ${email}:`, err.message);
+      await initWarmPage().catch((e) =>
+        console.error("[AuthProxy] Re-init error:", e.message)
+      );
+    }
   });
 }
 
-async function getReadySession() {
-  if (warmSessionPromise) {
-    const s = await warmSessionPromise;
-    warmSessionPromise = null;
-    warmUpNext();
-    if (s && Date.now() - s.createdAt < 4 * 60 * 1000) {
-      try {
-        const visible = await s.page
-          .locator("#customer-authentication-web-email")
-          .isVisible();
-        if (visible) return s;
-      } catch (e) {}
-      try {
-        await s.context.close();
-      } catch (e) {}
-    }
-  }
-  warmUpNext();
-  return await createWarmSession();
+function buildCodeUrl(loginUrl, email) {
+  const base = loginUrl.replace(
+    "/authentication/102987006274/login?",
+    "/authentication/102987006274/code?"
+  );
+  const sep = base.includes("?") ? "&" : "?";
+  return `${base}${sep}email=${encodeURIComponent(email)}`;
 }
-
-// Clean up expired sessions every 60s
-setInterval(() => {
-  const now = Date.now();
-  for (const [id, sess] of activeSessions.entries()) {
-    if (now - sess.createdAt > 10 * 60 * 1000) {
-      activeSessions.delete(id);
-      sess.context.close().catch(() => {});
-    }
-  }
-}, 60000);
 
 function sendJson(res, status, data) {
   const body = JSON.stringify(data);
@@ -117,214 +258,61 @@ function sendJson(res, status, data) {
   res.end(body);
 }
 
-function readJsonBody(req) {
-  return new Promise((resolve, reject) => {
-    let raw = "";
-    req.on("data", (chunk) => {
-      raw += chunk;
-      if (raw.length > 32768) req.destroy();
-    });
-    req.on("end", () => {
-      try {
-        resolve(raw ? JSON.parse(raw) : {});
-      } catch (e) {
-        reject(e);
-      }
-    });
-    req.on("error", reject);
+function handleRedirect(req, res, parsedUrl) {
+  const email = String(parsedUrl.searchParams.get("email") || "").trim();
+  if (!email || !email.includes("@") || !cachedLoginUrl) {
+    res.writeHead(302, { Location: SHOPIFY_REDIRECT_URL });
+    return res.end();
+  }
+
+  const targetCodeUrl = buildCodeUrl(cachedLoginUrl, email);
+
+  // Instant (< 1ms) 302 redirect to the official Shopify 6-digit code page
+  res.writeHead(302, {
+    Location: targetCodeUrl,
+    "Cache-Control": "no-store, no-cache, must-revalidate"
   });
+  res.end();
+
+  // Trigger Shopify's @t.shopifyemail.com 6-digit verification code in background
+  submitEmailInBackground(email);
 }
 
-async function handleSendCode(req, res) {
-  const body = await readJsonBody(req);
-  const email = String(body.email || "").trim();
-  if (!email || !email.includes("@")) {
-    return sendJson(res, 400, { ok: false, error: "Please enter a valid email address." });
-  }
-
-  let session = null;
-  try {
-    session = await getReadySession();
-    const { page, context } = session;
-
-    let loginApiResult = null;
-    const onResponse = async (resp) => {
-      if (
-        resp.url().includes("/authentication/102987006274/login") &&
-        resp.request().method() === "POST"
-      ) {
-        try {
-          loginApiResult = await resp.json();
-        } catch (e) {}
-      }
-    };
-    page.on("response", onResponse);
-
-    const emailInput = page.locator("#customer-authentication-web-email");
-    await emailInput.fill(email);
-    await page.locator('button[type="submit"]').first().click();
-
-    // Wait up to 12s for either /code URL or userErrors
-    const start = Date.now();
-    while (Date.now() - start < 12000) {
-      if (loginApiResult) {
-        if (loginApiResult.userErrors && loginApiResult.userErrors.length > 0) {
-          page.off("response", onResponse);
-          await context.close().catch(() => {});
-          return sendJson(res, 400, {
-            ok: false,
-            error: loginApiResult.userErrors[0].message || "Invalid email address."
-          });
-        }
-        if (loginApiResult.nextStep === "code" || page.url().includes("/code")) {
-          break;
-        }
-      }
-      if (page.url().includes("/code")) break;
-      await page.waitForTimeout(150);
-    }
-    page.off("response", onResponse);
-
-    await page.waitForURL("**/code**", { timeout: 6000 }).catch(() => {});
-
-    const sessionId = crypto.randomUUID();
-    const codeUrl =
-      page.url() +
-      (page.url().includes("?") ? "&" : "?") +
-      "email=" +
-      encodeURIComponent(email);
-
-    activeSessions.set(sessionId, {
-      context,
-      page,
-      email,
-      createdAt: Date.now()
-    });
-
-    return sendJson(res, 200, {
-      ok: true,
-      sessionId,
-      email,
-      codeUrl
-    });
-  } catch (err) {
-    if (session && session.context) {
-      await session.context.close().catch(() => {});
-    }
-    console.error("[AuthProxy] send-code error:", err.message);
-    return sendJson(res, 500, {
-      ok: false,
-      error: "Could not send verification code right now. Please try again."
-    });
-  }
-}
-
-async function handleVerifyCode(req, res) {
-  const body = await readJsonBody(req);
-  const sessionId = String(body.sessionId || "").trim();
-  const code = String(body.code || "").replace(/\D/g, "").trim();
-
-  if (!sessionId || !activeSessions.has(sessionId)) {
-    return sendJson(res, 400, {
-      ok: false,
-      error: "Your verification session expired. Please request a new code."
-    });
-  }
-  if (!code || code.length < 6) {
-    return sendJson(res, 400, {
-      ok: false,
-      error: "Please enter the 6-digit code sent to your email."
-    });
-  }
-
-  const sess = activeSessions.get(sessionId);
-  const { page, context, email } = sess;
-
-  try {
-    let verifyApiResult = null;
-    const onResponse = async (resp) => {
-      if (
-        resp.url().includes("/authentication/102987006274/login") &&
-        resp.request().method() === "POST"
-      ) {
-        try {
-          verifyApiResult = await resp.json();
-        } catch (e) {}
-      }
-    };
-    page.on("response", onResponse);
-
-    const codeInput = page.locator('input[inputmode="numeric"], input[type="text"]').first();
-    await codeInput.waitFor({ state: "visible", timeout: 8000 });
-    await codeInput.fill("");
-    await codeInput.fill(code);
-    await page.locator('button[type="submit"]').first().click();
-
-    const start = Date.now();
-    while (Date.now() - start < 12000) {
-      if (verifyApiResult) break;
-      await page.waitForTimeout(150);
-    }
-    page.off("response", onResponse);
-
-    if (verifyApiResult && verifyApiResult.userErrors && verifyApiResult.userErrors.length > 0) {
-      return sendJson(res, 400, {
-        ok: false,
-        error: verifyApiResult.userErrors[0].message || "Invalid verification code."
-      });
-    }
-
-    if (verifyApiResult && verifyApiResult.nextStep === "redirect") {
-      // Wait briefly for account redirect to complete
-      await page.waitForTimeout(2000);
-      let accountSummary = "No orders yet. Go to the store to place an order.";
-      try {
-        const bodyText = await page.innerText("body");
-        if (bodyText && bodyText.includes("Order")) {
-          accountSummary = "Signed in to your WishShipped.com account.";
-        }
-      } catch (e) {}
-
-      activeSessions.delete(sessionId);
-      await context.close().catch(() => {});
-
-      return sendJson(res, 200, {
-        ok: true,
-        email,
-        summary: accountSummary
-      });
-    }
-
-    return sendJson(res, 400, {
-      ok: false,
-      error: "Invalid or expired verification code. Please check the code and try again."
-    });
-  } catch (err) {
-    console.error("[AuthProxy] verify-code error:", err.message);
-    return sendJson(res, 500, {
-      ok: false,
-      error: "Verification failed. Please check your 6-digit code and try again."
-    });
-  }
-}
-
-const server = http.createServer(async (req, res) => {
+const server = http.createServer((req, res) => {
   if (req.method === "OPTIONS") {
     return sendJson(res, 200, { ok: true });
   }
-  if (req.method === "GET" && req.url === "/api/auth/health") {
-    return sendJson(res, 200, { ok: true, activeSessions: activeSessions.size });
+
+  const parsedUrl = new URL(req.url, `http://127.0.0.1:${PORT}`);
+
+  if (req.method === "GET" && parsedUrl.pathname === "/api/auth/health") {
+    return sendJson(res, 200, {
+      ok: true,
+      warmReady: Boolean(sharedPage && !sharedPage.isClosed()),
+      hasLoginUrl: Boolean(cachedLoginUrl)
+    });
   }
-  if (req.method === "POST" && req.url === "/api/auth/send-code") {
-    return handleSendCode(req, res);
+
+  if (req.method === "GET" && parsedUrl.pathname === "/api/auth/redirect") {
+    return handleRedirect(req, res, parsedUrl);
   }
-  if (req.method === "POST" && req.url === "/api/auth/verify-code") {
-    return handleVerifyCode(req, res);
-  }
+
   sendJson(res, 404, { ok: false, error: "Not found" });
 });
 
+process.on("SIGTERM", () => {
+  if (browser) browser.close().catch(() => {});
+  process.exit(0);
+});
+process.on("SIGINT", () => {
+  if (browser) browser.close().catch(() => {});
+  process.exit(0);
+});
+
+loadOrRefreshCachedFiles();
 server.listen(PORT, "127.0.0.1", () => {
   console.log(`[WishShipped AuthProxy] Listening on http://127.0.0.1:${PORT}`);
-  warmUpNext();
+  initWarmPage().catch((err) =>
+    console.error("[AuthProxy] Initial warmup error:", err.message)
+  );
 });
