@@ -1500,7 +1500,7 @@
       });
     }
 
-    // Customer Login: Immediately redirect right after typing email to the official Shopify 6-digit code page
+    // Customer Login: Redirect with login_hint so Shopify pre-fills the email in the user's own browser session
     const loginForm = document.getElementById("customer-login-form");
     if (loginForm) {
       loginForm.addEventListener("submit", (e) => {
@@ -1508,7 +1508,7 @@
         const emailInput = document.getElementById("customer-login-email");
         const email = emailInput ? emailInput.value.trim() : "";
         if (!email) return;
-        window.location.href = `/api/auth/redirect?email=${encodeURIComponent(email)}`;
+        window.location.href = `https://${CFG.domain}/customer_authentication/login?return_to=%2F&login_hint=${encodeURIComponent(email)}`;
       });
     }
 

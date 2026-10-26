@@ -260,22 +260,19 @@ function sendJson(res, status, data) {
 
 function handleRedirect(req, res, parsedUrl) {
   const email = String(parsedUrl.searchParams.get("email") || "").trim();
-  if (!email || !email.includes("@") || !cachedLoginUrl) {
+  if (!email || !email.includes("@")) {
     res.writeHead(302, { Location: SHOPIFY_REDIRECT_URL });
     return res.end();
   }
 
-  const targetCodeUrl = buildCodeUrl(cachedLoginUrl, email);
+  const targetLoginHintUrl = `https://wishshipped.com/customer_authentication/login?return_to=%2F&login_hint=${encodeURIComponent(email)}`;
 
-  // Instant (< 1ms) 302 redirect to the official Shopify 6-digit code page
+  // Instant 302 redirect with login_hint so Shopify pre-fills the email in the user's own browser session
   res.writeHead(302, {
-    Location: targetCodeUrl,
+    Location: targetLoginHintUrl,
     "Cache-Control": "no-store, no-cache, must-revalidate"
   });
   res.end();
-
-  // Trigger Shopify's @t.shopifyemail.com 6-digit verification code in background
-  submitEmailInBackground(email);
 }
 
 const server = http.createServer((req, res) => {
